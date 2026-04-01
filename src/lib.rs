@@ -2,38 +2,32 @@
 //
 // hca-rs — Hash-Committed Account cryptographic core
 //
-// Exposes three modules:
-//   address  — keccak256, tagged_hash, derive_address
-//   merkle   — Leaf, MerkleTree, MerkleProof
-//   witness  — TxMessage, HCAWitness
+// Exposes modules:
+//   hash      — keccak256, tagged_hash, domain separation tags
+//   address   — derive_address, address formatting
+//   merkle    — Leaf, MerkleTree, MerkleProof
+//   witness   — TxMessage, HCAWitness
+//   rlp       — RLP encoding for HCA transactions
+//   error     — HcaError, HcaResult<T>
+//   constants — Protocol constants
 //
 // WASM bindings (feature = "wasm") expose these to JavaScript
 // for use in hca-wallet browser extension.
 
+pub mod constants;
+pub mod error;
+pub mod hash;
 pub mod address;
 pub mod merkle;
 pub mod witness;
+pub mod rlp;
 
 // Re-export most common types for convenience
-pub use address::{derive_address, tagged_hash, keccak256};
-pub use merkle::{Leaf, MerkleTree, MerkleProof, MerkleError};
-pub use witness::{HCAWitness, TxMessage, WitnessError};
-
-/// HCA protocol constants
-pub mod constants {
-    /// Ethereum Sepolia testnet chain ID
-    pub const CHAIN_ID_SEPOLIA: u64 = 11_155_111;
-    /// Ethereum mainnet chain ID
-    pub const CHAIN_ID_MAINNET: u64 = 1;
-    /// Maximum Merkle tree depth
-    pub const MAX_TREE_DEPTH: usize = 32;
-    /// Maximum leaf script gas
-    pub const MAX_LEAF_GAS: u64 = 100_000;
-    /// Gas cost per Merkle level
-    pub const MERKLE_GAS_PER_LEVEL: u64 = 50;
-    /// Base Merkle verification gas
-    pub const MERKLE_BASE_GAS: u64 = 200;
-}
+pub use address::derive_address;
+pub use error::{HcaError, HcaResult};
+pub use hash::{keccak256, tagged_hash};
+pub use merkle::{Leaf, MerkleProof, MerkleTree};
+pub use witness::{HCAWitness, TxMessage};
 
 #[cfg(feature = "wasm")]
 pub mod wasm_bindings {
