@@ -7,6 +7,7 @@
 //   address   — derive_address, address formatting
 //   merkle    — Leaf, MerkleTree, MerkleProof
 //   witness   — TxMessage, HCAWitness
+//   rlp       — RLP encoding for HCA transactions
 //   error     — HcaError, HcaResult<T>
 //   constants — Protocol constants
 //
@@ -19,6 +20,7 @@ pub mod hash;
 pub mod address;
 pub mod merkle;
 pub mod witness;
+pub mod rlp;
 
 // Re-export most common types for convenience
 pub use address::derive_address;
