@@ -120,21 +120,39 @@ impl HCAWitness {
         proof_gas + leaf_gas
     }
 
-    /// Encode witness for transaction submission
+    /// Encode witness data only (not the full transaction)
     ///
-    /// NOTE: Full RLP encoding will be implemented in PR3
+    /// For full transaction encoding including witness, use `rlp::encode_hca_tx()`.
+    ///
+    /// Returns a serialized representation of the witness fields:
+    /// - leaf_version
+    /// - leaf_script
+    /// - merkle_proof (leaf_index + siblings)
+    /// - witness_data (signature)
     pub fn encode(&self) -> HcaResult<Vec<u8>> {
         if !self.is_signed() {
             return Err(HcaError::WitnessNotSigned);
         }
 
-        // Placeholder: will implement full RLP encoding in PR3
-        let mut encoded = Vec::new();
-        encoded.push(self.leaf_version);
-        encoded.extend_from_slice(&self.leaf_script);
-        // TODO: encode merkle_proof and witness_data
+        use crate::rlp::{encode_bytes, encode_list, encode_uint};
 
-        Ok(encoded)
+        let mut fields = Vec::new();
+        fields.push(encode_uint(self.leaf_version as u128));
+        fields.push(encode_bytes(&self.leaf_script));
+        fields.push(encode_uint(self.merkle_proof.leaf_index as u128));
+
+        // Encode merkle proof siblings
+        let siblings: Vec<Vec<u8>> = self
+            .merkle_proof
+            .siblings
+            .iter()
+            .map(|s| encode_bytes(s))
+            .collect();
+        fields.push(encode_list(&siblings));
+
+        fields.push(encode_bytes(&self.witness_data));
+
+        Ok(encode_list(&fields))
     }
 }
 
