@@ -1,0 +1,227 @@
+{
+    "description": "Merkle tree proof generation and verification test vectors",
+    "version": "0.1.0",
+    "vectors": [
+        {
+            "description": "Single leaf tree",
+            "leaves": [
+                {
+                    "version": "0x01",
+                    "script": "0x7072696d617279"
+                }
+            ],
+            "tree": {
+                "depth": 0,
+                "auth_root": "computed_at_runtime"
+            },
+            "proofs": [
+                {
+                    "leaf_index": 0,
+                    "siblings": [],
+                    "should_verify": true
+                }
+            ]
+        },
+        {
+            "description": "Two leaf tree",
+            "leaves": [
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166305f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166315f7363726970"
+                }
+            ],
+            "tree": {
+                "depth": 1,
+                "auth_root": "computed_at_runtime"
+            },
+            "proofs": [
+                {
+                    "leaf_index": 0,
+                    "siblings": [
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                },
+                {
+                    "leaf_index": 1,
+                    "siblings": [
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                }
+            ]
+        },
+        {
+            "description": "Three leaf tree (padded to 4)",
+            "leaves": [
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166305f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166315f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166325f7363726970"
+                }
+            ],
+            "tree": {
+                "depth": 2,
+                "auth_root": "computed_at_runtime",
+                "note": "Tree is padded to 4 leaves by duplicating last leaf"
+            },
+            "proofs": [
+                {
+                    "leaf_index": 0,
+                    "siblings": [
+                        "computed_at_runtime",
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                },
+                {
+                    "leaf_index": 1,
+                    "siblings": [
+                        "computed_at_runtime",
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                },
+                {
+                    "leaf_index": 2,
+                    "siblings": [
+                        "computed_at_runtime",
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                }
+            ]
+        },
+        {
+            "description": "Four leaf tree",
+            "leaves": [
+                {
+                    "version": "0x01",
+                    "script": "0x7072696d6172795f6b6579"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x7265636f766572795f6b6579"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x74696d656c6f636b5f6b6579"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6d756c74697369675f6b6579"
+                }
+            ],
+            "tree": {
+                "depth": 2,
+                "auth_root": "computed_at_runtime"
+            },
+            "proofs": [
+                {
+                    "leaf_index": 0,
+                    "siblings": [
+                        "computed_at_runtime",
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                },
+                {
+                    "leaf_index": 1,
+                    "siblings": [
+                        "computed_at_runtime",
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                },
+                {
+                    "leaf_index": 2,
+                    "siblings": [
+                        "computed_at_runtime",
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                },
+                {
+                    "leaf_index": 3,
+                    "siblings": [
+                        "computed_at_runtime",
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                }
+            ]
+        },
+        {
+            "description": "Eight leaf tree",
+            "leaves": [
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166305f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166315f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166325f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166335f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166345f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166355f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166365f7363726970"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x6c656166375f7363726970"
+                }
+            ],
+            "tree": {
+                "depth": 3,
+                "auth_root": "computed_at_runtime"
+            },
+            "proofs": [
+                {
+                    "leaf_index": 0,
+                    "siblings": [
+                        "computed_at_runtime",
+                        "computed_at_runtime",
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                },
+                {
+                    "leaf_index": 7,
+                    "siblings": [
+                        "computed_at_runtime",
+                        "computed_at_runtime",
+                        "computed_at_runtime"
+                    ],
+                    "should_verify": true
+                }
+            ]
+        }
+    ]
+}

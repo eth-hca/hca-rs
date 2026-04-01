@@ -1,0 +1,97 @@
+{
+    "description": "HCA witness signing hash test vectors",
+    "version": "0.1.0",
+    "formula": "signing_hash = tagged_hash('HCAWitness', chain_id || nonce || from || to || value || gas_limit || max_fee || max_priority_fee || leaf_hash)",
+    "vectors": [
+        {
+            "description": "Minimal transaction on Sepolia",
+            "transaction": {
+                "chain_id": 11155111,
+                "nonce": 0,
+                "from": "0x0000000000000000000000000000000000000001",
+                "to": "0x0000000000000000000000000000000000000002",
+                "value": "0",
+                "gas_limit": 21000,
+                "max_fee_per_gas": "1000000000",
+                "max_priority_fee_per_gas": "100000000"
+            },
+            "leaf_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "expected_signing_hash": "computed_at_runtime"
+        },
+        {
+            "description": "Standard transaction on mainnet",
+            "transaction": {
+                "chain_id": 1,
+                "nonce": 5,
+                "from": "0x1234567890123456789012345678901234567890",
+                "to": "0xabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd",
+                "value": "1000000000000000000",
+                "gas_limit": 100000,
+                "max_fee_per_gas": "50000000000",
+                "max_priority_fee_per_gas": "2000000000"
+            },
+            "leaf_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "expected_signing_hash": "computed_at_runtime"
+        },
+        {
+            "description": "Large value transaction",
+            "transaction": {
+                "chain_id": 11155111,
+                "nonce": 100,
+                "from": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "to": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "value": "100000000000000000000",
+                "gas_limit": 200000,
+                "max_fee_per_gas": "100000000000",
+                "max_priority_fee_per_gas": "5000000000"
+            },
+            "leaf_hash": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+            "expected_signing_hash": "computed_at_runtime"
+        },
+        {
+            "description": "Cross-chain replay protection - same tx different chain",
+            "transaction_mainnet": {
+                "chain_id": 1,
+                "nonce": 0,
+                "from": "0x1111111111111111111111111111111111111111",
+                "to": "0x2222222222222222222222222222222222222222",
+                "value": "1000000000000000000",
+                "gas_limit": 21000,
+                "max_fee_per_gas": "1000000000",
+                "max_priority_fee_per_gas": "100000000"
+            },
+            "transaction_sepolia": {
+                "chain_id": 11155111,
+                "nonce": 0,
+                "from": "0x1111111111111111111111111111111111111111",
+                "to": "0x2222222222222222222222222222222222222222",
+                "value": "1000000000000000000",
+                "gas_limit": 21000,
+                "max_fee_per_gas": "1000000000",
+                "max_priority_fee_per_gas": "100000000"
+            },
+            "leaf_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "expected_signing_hash_mainnet": "computed_at_runtime",
+            "expected_signing_hash_sepolia": "computed_at_runtime",
+            "note": "Signing hashes MUST be different to prevent cross-chain replay"
+        },
+        {
+            "description": "Different leaf hashes produce different signing hashes",
+            "transaction": {
+                "chain_id": 1,
+                "nonce": 0,
+                "from": "0x1111111111111111111111111111111111111111",
+                "to": "0x2222222222222222222222222222222222222222",
+                "value": "1000000000000000000",
+                "gas_limit": 21000,
+                "max_fee_per_gas": "1000000000",
+                "max_priority_fee_per_gas": "100000000"
+            },
+            "leaf_hash_1": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "leaf_hash_2": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "expected_signing_hash_1": "computed_at_runtime",
+            "expected_signing_hash_2": "computed_at_runtime",
+            "note": "Different leaf hashes MUST produce different signing hashes"
+        }
+    ]
+}
