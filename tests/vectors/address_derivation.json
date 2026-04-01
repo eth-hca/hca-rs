@@ -1,0 +1,51 @@
+{
+    "description": "HCA address derivation test vectors",
+    "version": "0.1.0",
+    "formula": "address = keccak256(tagged_hash('HCAAddr', auth_root))[12:]",
+    "vectors": [
+        {
+            "description": "Zero auth_root",
+            "auth_root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "expected_address": "computed_at_runtime"
+        },
+        {
+            "description": "All-ones auth_root",
+            "auth_root": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "expected_address": "computed_at_runtime"
+        },
+        {
+            "description": "Sample auth_root 1",
+            "auth_root": "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "expected_address": "computed_at_runtime"
+        },
+        {
+            "description": "Sample auth_root 2",
+            "auth_root": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+            "expected_address": "computed_at_runtime"
+        },
+        {
+            "description": "Single leaf tree - primary key",
+            "auth_root": "computed_from_single_leaf",
+            "leaf": {
+                "version": "0x01",
+                "script": "0x4f505f434845434b5349475f7072696d617279"
+            },
+            "expected_address": "computed_at_runtime"
+        },
+        {
+            "description": "Two leaf tree - primary and recovery",
+            "auth_root": "computed_from_two_leaves",
+            "leaves": [
+                {
+                    "version": "0x01",
+                    "script": "0x7072696d6172795f6b6579"
+                },
+                {
+                    "version": "0x01",
+                    "script": "0x7265636f766572795f6b6579"
+                }
+            ],
+            "expected_address": "computed_at_runtime"
+        }
+    ]
+}
