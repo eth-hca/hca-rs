@@ -1,0 +1,60 @@
+{
+    "description": "Tagged hash test vectors for HCA domain separation",
+    "version": "0.1.0",
+    "vectors": [
+        {
+            "description": "Empty data with ADDR tag",
+            "tag": "HCAAddr",
+            "data": "0x",
+            "expected": "computed_at_runtime"
+        },
+        {
+            "description": "32-byte zero data with ADDR tag",
+            "tag": "HCAAddr",
+            "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "expected": "computed_at_runtime"
+        },
+        {
+            "description": "32-byte zero data with LEAF tag",
+            "tag": "HCALeaf",
+            "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "expected": "computed_at_runtime"
+        },
+        {
+            "description": "32-byte zero data with BRANCH tag",
+            "tag": "HCABranch",
+            "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "expected": "computed_at_runtime"
+        },
+        {
+            "description": "32-byte zero data with WITNESS tag",
+            "tag": "HCAWitness",
+            "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "expected": "computed_at_runtime"
+        },
+        {
+            "description": "Test data 'hello world' with ADDR tag",
+            "tag": "HCAAddr",
+            "data": "0x68656c6c6f20776f726c64",
+            "expected": "computed_at_runtime"
+        },
+        {
+            "description": "Leaf with version 0x01 and empty script",
+            "tag": "HCALeaf",
+            "data": "0x01",
+            "expected": "computed_at_runtime"
+        },
+        {
+            "description": "Leaf with version 0x01 and sample script",
+            "tag": "HCALeaf",
+            "data": "0x014f505f434845434b534947",
+            "expected": "computed_at_runtime"
+        },
+        {
+            "description": "Branch hash with two zero hashes",
+            "tag": "HCABranch",
+            "data": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "expected": "computed_at_runtime"
+        }
+    ]
+}
