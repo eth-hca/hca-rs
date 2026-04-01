@@ -5,12 +5,10 @@
 //! - Second preimage attacks impossible by construction
 //! - Maximum depth: 32 levels (2^32 leaves max)
 
-use crate::address::tagged_hash;
-use crate::address::tags;
+use crate::constants::MAX_TREE_DEPTH;
+use crate::error::{HcaError, HcaResult};
+use crate::hash::{tagged_hash, tags};
 use serde::{Deserialize, Serialize};
-
-/// Maximum Merkle tree depth
-pub const MAX_DEPTH: usize = 32;
 
 /// HCA spending condition leaf
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -73,15 +71,16 @@ pub struct MerkleTree {
 impl MerkleTree {
     /// Build a Merkle tree from spending condition leaves
     ///
-    /// # Panics
-    /// Panics if leaves is empty or exceeds 2^MAX_DEPTH
-    pub fn new(leaves: Vec<Leaf>) -> Self {
-        assert!(!leaves.is_empty(), "Tree must have at least one leaf");
-        assert!(
-            leaves.len() <= (1 << MAX_DEPTH),
-            "Too many leaves — maximum is 2^{}",
-            MAX_DEPTH
-        );
+    /// Returns an error if leaves is empty or exceeds maximum depth.
+    pub fn new(leaves: Vec<Leaf>) -> HcaResult<Self> {
+        if leaves.is_empty() {
+            return Err(HcaError::EmptyTree);
+        }
+
+        if leaves.len() > (1 << MAX_TREE_DEPTH) {
+            let depth = (leaves.len() as f64).log2().ceil() as usize;
+            return Err(HcaError::TreeTooDeep { depth });
+        }
 
         let size = next_power_of_two(leaves.len());
 
@@ -92,7 +91,11 @@ impl MerkleTree {
             level_0.push(last); // pad with last leaf
         }
 
-        let depth = if size == 1 { 0 } else { (size as f64).log2() as usize };
+        let depth = if size == 1 {
+            0
+        } else {
+            (size as f64).log2() as usize
+        };
 
         // Build all levels bottom-up
         let mut levels = vec![level_0];
@@ -105,7 +108,11 @@ impl MerkleTree {
             levels.push(next);
         }
 
-        Self { leaves, nodes: levels, depth }
+        Ok(Self {
+            leaves,
+            nodes: levels,
+            depth,
+        })
     }
 
     /// Get the auth_root (Merkle root of all spending conditions)
@@ -114,8 +121,13 @@ impl MerkleTree {
     }
 
     /// Generate a Merkle proof for the leaf at `leaf_index`
-    pub fn proof(&self, leaf_index: usize) -> MerkleProof {
-        assert!(leaf_index < self.leaves.len(), "Leaf index out of bounds");
+    pub fn proof(&self, leaf_index: usize) -> HcaResult<MerkleProof> {
+        if leaf_index >= self.leaves.len() {
+            return Err(HcaError::LeafIndexOutOfBounds {
+                index: leaf_index,
+                count: self.leaves.len(),
+            });
+        }
 
         let mut siblings = Vec::with_capacity(self.depth);
         let mut idx = leaf_index;
@@ -123,13 +135,18 @@ impl MerkleTree {
         for level in &self.nodes[..self.depth] {
             let sibling = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
             // Use last node if sibling is out of bounds (padding)
-            let sibling_hash = level.get(sibling).copied()
+            let sibling_hash = level
+                .get(sibling)
+                .copied()
                 .unwrap_or_else(|| *level.last().unwrap());
             siblings.push(sibling_hash);
             idx /= 2;
         }
 
-        MerkleProof { leaf_index, siblings }
+        Ok(MerkleProof {
+            leaf_index,
+            siblings,
+        })
     }
 
     /// Verify a Merkle proof against the auth_root
@@ -140,11 +157,12 @@ impl MerkleTree {
         leaf_hash: &[u8; 32],
         proof: &MerkleProof,
         auth_root: &[u8; 32],
-    ) -> bool {
-        assert!(
-            proof.siblings.len() <= MAX_DEPTH,
-            "Proof depth exceeds maximum"
-        );
+    ) -> HcaResult<bool> {
+        if proof.siblings.len() > MAX_TREE_DEPTH {
+            return Err(HcaError::TreeTooDeep {
+                depth: proof.siblings.len(),
+            });
+        }
 
         let mut current = *leaf_hash;
         let mut idx = proof.leaf_index;
@@ -158,7 +176,7 @@ impl MerkleTree {
             idx /= 2;
         }
 
-        &current == auth_root
+        Ok(&current == auth_root)
     }
 }
 
@@ -172,9 +190,13 @@ pub(crate) fn branch_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
 }
 
 fn next_power_of_two(n: usize) -> usize {
-    if n <= 1 { return 1; }
+    if n <= 1 {
+        return 1;
+    }
     let mut p = 1;
-    while p < n { p <<= 1; }
+    while p < n {
+        p <<= 1;
+    }
     p
 }
 
@@ -188,16 +210,16 @@ mod tests {
 
     #[test]
     fn test_single_leaf_tree() {
-        let tree = MerkleTree::new(vec![leaf(b"OP_CHECKSIG", "primary")]);
+        let tree = MerkleTree::new(vec![leaf(b"OP_CHECKSIG", "primary")]).unwrap();
         assert_ne!(tree.auth_root(), [0u8; 32]);
     }
 
     #[test]
     fn test_proof_verification_single_leaf() {
         let leaves = vec![leaf(b"OP_CHECKSIG", "primary")];
-        let tree = MerkleTree::new(leaves.clone());
-        let proof = tree.proof(0);
-        assert!(MerkleTree::verify(&leaves[0].hash(), &proof, &tree.auth_root()));
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
+        let proof = tree.proof(0).unwrap();
+        assert!(MerkleTree::verify(&leaves[0].hash(), &proof, &tree.auth_root()).unwrap());
     }
 
     #[test]
@@ -207,29 +229,27 @@ mod tests {
             leaf(b"recovery key script", "recovery"),
             leaf(b"timelock script", "timelock"),
         ];
-        let tree = MerkleTree::new(leaves.clone());
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
         let root = tree.auth_root();
 
         for i in 0..leaves.len() {
-            let proof = tree.proof(i);
+            let proof = tree.proof(i).unwrap();
             assert!(
-                MerkleTree::verify(&leaves[i].hash(), &proof, &root),
-                "Proof for leaf {} failed", i
+                MerkleTree::verify(&leaves[i].hash(), &proof, &root).unwrap(),
+                "Proof for leaf {} failed",
+                i
             );
         }
     }
 
     #[test]
     fn test_wrong_leaf_fails_verification() {
-        let leaves = vec![
-            leaf(b"leaf 0", "leaf 0"),
-            leaf(b"leaf 1", "leaf 1"),
-        ];
-        let tree = MerkleTree::new(leaves.clone());
+        let leaves = vec![leaf(b"leaf 0", "leaf 0"), leaf(b"leaf 1", "leaf 1")];
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
         let root = tree.auth_root();
-        let proof = tree.proof(0);
+        let proof = tree.proof(0).unwrap();
         // Wrong leaf hash — should fail
-        assert!(!MerkleTree::verify(&leaves[1].hash(), &proof, &root));
+        assert!(!MerkleTree::verify(&leaves[1].hash(), &proof, &root).unwrap());
     }
 
     #[test]
@@ -238,14 +258,16 @@ mod tests {
         let l = leaf(b"OP_CHECKSIG", "primary");
         let leaf_hash = l.hash();
         let branch = branch_hash(&leaf_hash, &leaf_hash);
-        assert_ne!(leaf_hash, branch,
-            "Leaf and branch hashes must differ — domain separation required");
+        assert_ne!(
+            leaf_hash, branch,
+            "Leaf and branch hashes must differ — domain separation required"
+        );
     }
 
     #[test]
     fn test_different_trees_different_roots() {
-        let tree1 = MerkleTree::new(vec![leaf(b"script A", "a")]);
-        let tree2 = MerkleTree::new(vec![leaf(b"script B", "b")]);
+        let tree1 = MerkleTree::new(vec![leaf(b"script A", "a")]).unwrap();
+        let tree2 = MerkleTree::new(vec![leaf(b"script B", "b")]).unwrap();
         assert_ne!(tree1.auth_root(), tree2.auth_root());
     }
 
@@ -253,10 +275,13 @@ mod tests {
     fn test_leaf_order_affects_root() {
         let leaves_ab = vec![leaf(b"A", "a"), leaf(b"B", "b")];
         let leaves_ba = vec![leaf(b"B", "b"), leaf(b"A", "a")];
-        let tree_ab = MerkleTree::new(leaves_ab);
-        let tree_ba = MerkleTree::new(leaves_ba);
-        assert_ne!(tree_ab.auth_root(), tree_ba.auth_root(),
-            "Leaf order must affect root");
+        let tree_ab = MerkleTree::new(leaves_ab).unwrap();
+        let tree_ba = MerkleTree::new(leaves_ba).unwrap();
+        assert_ne!(
+            tree_ab.auth_root(),
+            tree_ba.auth_root(),
+            "Leaf order must affect root"
+        );
     }
 
     #[test]

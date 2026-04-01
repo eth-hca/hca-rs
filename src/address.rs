@@ -49,8 +49,10 @@ mod tests {
         let auth_root = [42u8; 32];
         let addr1 = derive_address(&auth_root);
         let addr2 = derive_address(&auth_root);
-        assert_eq!(addr1, addr2,
-            "Same auth_root must always produce same address");
+        assert_eq!(
+            addr1, addr2,
+            "Same auth_root must always produce same address"
+        );
     }
 
     #[test]
@@ -59,8 +61,10 @@ mod tests {
         let root2 = [2u8; 32];
         let addr1 = derive_address(&root1);
         let addr2 = derive_address(&root2);
-        assert_ne!(addr1, addr2,
-            "Different auth_roots must produce different addresses");
+        assert_ne!(
+            addr1, addr2,
+            "Different auth_roots must produce different addresses"
+        );
     }
 
     #[test]
@@ -71,8 +75,10 @@ mod tests {
         let address = derive_address(&auth_root);
         // If address were just auth_root[12:], all bytes would be 0xAB
         let all_same = address.iter().all(|&b| b == 0xAB);
-        assert!(!all_same,
-            "Address must be a hash of auth_root, not a truncation");
+        assert!(
+            !all_same,
+            "Address must be a hash of auth_root, not a truncation"
+        );
     }
 
     #[test]
