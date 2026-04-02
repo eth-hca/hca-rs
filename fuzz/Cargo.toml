@@ -1,0 +1,42 @@
+[package]
+name = "hca-rs-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.hca-rs]
+path = ".."
+
+[[bin]]
+name = "fuzz_merkle"
+path = "fuzz_targets/fuzz_merkle.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_proof"
+path = "fuzz_targets/fuzz_proof.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_witness"
+path = "fuzz_targets/fuzz_witness.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_rlp"
+path = "fuzz_targets/fuzz_rlp.rs"
+test = false
+doc = false
+bench = false
