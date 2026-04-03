@@ -62,6 +62,9 @@ pub enum HcaError {
     /// RLP encoding error
     RlpEncodingError(String),
 
+    /// RLP decoding error
+    RlpDecodeError(String),
+
     /// Invalid address format
     InvalidAddress,
 }
@@ -109,6 +112,9 @@ impl fmt::Display for HcaError {
             }
             HcaError::RlpEncodingError(msg) => {
                 write!(f, "RLP encoding error: {}", msg)
+            }
+            HcaError::RlpDecodeError(msg) => {
+                write!(f, "RLP decode error: {}", msg)
             }
             HcaError::InvalidAddress => {
                 write!(f, "Invalid address format")
