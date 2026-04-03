@@ -7,6 +7,7 @@
 
 use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
+use crate::evm::opcode::validate_leaf_script;
 use crate::hash::{tagged_hash, tags};
 use serde::{Deserialize, Serialize};
 
@@ -37,6 +38,7 @@ impl Leaf {
         if script.len() > MAX_LEAF_SCRIPT_SIZE {
             return Err(HcaError::LeafScriptTooLarge { size: script.len() });
         }
+        validate_leaf_script(&script)?;
         Ok(Self {
             version,
             script,
