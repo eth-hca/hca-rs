@@ -310,6 +310,10 @@ fn parse_tx_message(json: &Value) -> TxMessage {
         from,
         to,
         value: json["value"].as_str().unwrap().parse().unwrap(),
+        data: json["data"]
+            .as_str()
+            .map(|s| hex::decode(s.strip_prefix("0x").unwrap_or(s)).unwrap_or_default())
+            .unwrap_or_default(),
         gas_limit: json["gas_limit"].as_u64().unwrap(),
         max_fee_per_gas: json["max_fee_per_gas"].as_str().unwrap().parse().unwrap(),
         max_priority_fee_per_gas: json["max_priority_fee_per_gas"]
