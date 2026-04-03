@@ -136,11 +136,12 @@ impl HCAWitness {
     /// - merkle_proof (leaf_index + siblings)
     /// - witness_data (signature)
     pub fn encode(&self) -> HcaResult<Vec<u8>> {
+        use crate::constants::MAX_WITNESS_SIZE;
+        use crate::rlp::{encode_bytes, encode_list, encode_uint};
+
         if !self.is_signed() {
             return Err(HcaError::WitnessNotSigned);
         }
-
-        use crate::rlp::{encode_bytes, encode_list, encode_uint};
 
         let mut fields = Vec::new();
         fields.push(encode_uint(self.leaf_version as u128));
@@ -158,7 +159,11 @@ impl HCAWitness {
 
         fields.push(encode_bytes(&self.witness_data));
 
-        Ok(encode_list(&fields))
+        let encoded = encode_list(&fields);
+        if encoded.len() > MAX_WITNESS_SIZE {
+            return Err(HcaError::WitnessTooLarge { size: encoded.len() });
+        }
+        Ok(encoded)
     }
 }
 
@@ -268,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_witness_unsigned_by_default() {
-        let leaf = Leaf::new(0x01, b"script".to_vec(), "test");
+        let leaf = Leaf::new(0x01, b"script".to_vec(), "test").unwrap();
         let proof = MerkleProof {
             leaf_index: 0,
             siblings: vec![],
@@ -280,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_witness_signed_after_attach() {
-        let leaf = Leaf::new(0x01, b"script".to_vec(), "test");
+        let leaf = Leaf::new(0x01, b"script".to_vec(), "test").unwrap();
         let proof = MerkleProof {
             leaf_index: 0,
             siblings: vec![],
@@ -293,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_witness_estimate_gas() {
-        let leaf = Leaf::new(0x01, b"script".to_vec(), "test");
+        let leaf = Leaf::new(0x01, b"script".to_vec(), "test").unwrap();
         let proof = MerkleProof {
             leaf_index: 0,
             siblings: vec![[0u8; 32], [0u8; 32], [0u8; 32]], // depth 3
@@ -305,8 +310,24 @@ mod tests {
     }
 
     #[test]
+    fn test_witness_too_large() {
+        use crate::constants::MAX_WITNESS_SIZE;
+        let leaf = Leaf::new(0x01, b"script".to_vec(), "test").unwrap();
+        let proof = MerkleProof {
+            leaf_index: 0,
+            siblings: vec![],
+        };
+        let mut witness = HCAWitness::build(&leaf, proof);
+        // Attach oversized signature to push encoded size over MAX_WITNESS_SIZE
+        witness.attach_signature(vec![0xAAu8; MAX_WITNESS_SIZE]);
+        let result = witness.encode();
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), HcaError::WitnessTooLarge { .. }));
+    }
+
+    #[test]
     fn test_encode_unsigned_witness_fails() {
-        let leaf = Leaf::new(0x01, b"script".to_vec(), "test");
+        let leaf = Leaf::new(0x01, b"script".to_vec(), "test").unwrap();
         let proof = MerkleProof {
             leaf_index: 0,
             siblings: vec![],
