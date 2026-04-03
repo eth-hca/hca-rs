@@ -216,6 +216,10 @@ pub fn build_witness(
         from,
         to,
         value: tx["value"].as_u64().unwrap_or(0) as u128,
+        data: tx["data"]
+            .as_str()
+            .and_then(|s| hex::decode(s.strip_prefix("0x").unwrap_or(s)).ok())
+            .unwrap_or_default(),
         gas_limit: tx["gas_limit"].as_u64().unwrap_or(100_000),
         max_fee_per_gas: tx["max_fee"].as_u64().unwrap_or(1_000_000_000) as u128,
         max_priority_fee_per_gas: tx["max_priority_fee"].as_u64().unwrap_or(100_000_000) as u128,
