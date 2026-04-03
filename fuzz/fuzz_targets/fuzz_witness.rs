@@ -57,6 +57,7 @@ fuzz_target!(|data: &[u8]| {
         from,
         to,
         value,
+        data: vec![],
         gas_limit,
         max_fee_per_gas,
         max_priority_fee_per_gas,

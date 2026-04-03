@@ -24,6 +24,8 @@ pub struct TxMessage {
     pub to: [u8; 20],
     /// Value to transfer in wei
     pub value: u128,
+    /// Calldata for contract interactions
+    pub data: Vec<u8>,
     /// Gas limit
     pub gas_limit: u64,
     /// Maximum fee per gas
@@ -56,6 +58,10 @@ impl TxMessage {
         data.extend_from_slice(&self.from);
         data.extend_from_slice(&self.to);
         data.extend_from_slice(&self.value.to_be_bytes());
+        // Include calldata length + content so different calldata → different hash
+        let data_len = self.data.len() as u64;
+        data.extend_from_slice(&data_len.to_be_bytes());
+        data.extend_from_slice(&self.data);
         data.extend_from_slice(&self.gas_limit.to_be_bytes());
         data.extend_from_slice(&self.max_fee_per_gas.to_be_bytes());
         data.extend_from_slice(&self.max_priority_fee_per_gas.to_be_bytes());
@@ -168,6 +174,7 @@ mod tests {
             from: [1u8; 20],
             to: [2u8; 20],
             value: 1_000_000_000_000_000u128,
+            data: vec![],
             gas_limit: 100_000,
             max_fee_per_gas: 1_000_000_000u128,
             max_priority_fee_per_gas: 100_000_000u128,
@@ -188,6 +195,7 @@ mod tests {
             from: [0xAAu8; 20],
             to: [0xBBu8; 20],
             value: 1000u128,
+            data: vec![],
             gas_limit: 21000,
             max_fee_per_gas: 1_000_000_000u128,
             max_priority_fee_per_gas: 100_000_000u128,
@@ -210,6 +218,7 @@ mod tests {
             from: [1u8; 20],
             to: [2u8; 20],
             value: 1000u128,
+            data: vec![],
             gas_limit: 21000,
             max_fee_per_gas: 1_000_000_000u128,
             max_priority_fee_per_gas: 100_000_000u128,
@@ -226,6 +235,34 @@ mod tests {
         assert_ne!(
             hash1, hash2,
             "Different chain_id must produce different signing hash"
+        );
+    }
+
+    #[test]
+    fn test_signing_hash_includes_data() {
+        let leaf_hash = [0u8; 32];
+
+        let tx_no_data = TxMessage {
+            chain_id: 1,
+            nonce: 0,
+            from: [1u8; 20],
+            to: [2u8; 20],
+            value: 0,
+            data: vec![],
+            gas_limit: 21000,
+            max_fee_per_gas: 1_000_000_000u128,
+            max_priority_fee_per_gas: 100_000_000u128,
+        };
+
+        let tx_with_data = TxMessage {
+            data: vec![0xde, 0xad, 0xbe, 0xef],
+            ..tx_no_data.clone()
+        };
+
+        assert_ne!(
+            tx_no_data.signing_hash(&leaf_hash),
+            tx_with_data.signing_hash(&leaf_hash),
+            "Different calldata must produce different signing hash"
         );
     }
 

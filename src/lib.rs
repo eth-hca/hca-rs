@@ -69,6 +69,7 @@ mod integration_tests {
             from: address,
             to: [0x02u8; 20],
             value: 1_000_000_000_000_000u128,
+            data: vec![],
             gas_limit: 100_000,
             max_fee_per_gas: 1_000_000_000u128,
             max_priority_fee_per_gas: 100_000_000u128,

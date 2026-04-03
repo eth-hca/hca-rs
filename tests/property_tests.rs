@@ -353,6 +353,7 @@ fn arb_tx_message() -> impl Strategy<Value = TxMessage> {
                 from,
                 to,
                 value: value as u128,
+                data: vec![],
                 gas_limit,
                 max_fee_per_gas: max_fee as u128,
                 max_priority_fee_per_gas: priority_fee as u128,

@@ -166,6 +166,8 @@ pub fn encode_hca_tx(tx: &TxMessage, witness: &HCAWitness) -> HcaResult<Vec<u8>>
         encode_uint(tx.max_priority_fee_per_gas),
         // Empty access list (for now)
         encode_list(&[]),
+        // Calldata
+        encode_bytes(&tx.data),
         // Witness fields
         encode_uint(witness.leaf_version as u128),
         encode_bytes(&witness.leaf_script),
