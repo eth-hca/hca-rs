@@ -32,7 +32,7 @@ pub use address::derive_address;
 pub use error::{HcaError, HcaResult};
 pub use hash::{keccak256, tagged_hash};
 pub use merkle::{Leaf, MerkleProof, MerkleTree};
-pub use witness::{HCAWitness, TxMessage};
+pub use witness::{HCAWitness, RotationRequest, TxMessage};
 
 #[cfg(test)]
 mod integration_tests {

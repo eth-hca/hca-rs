@@ -48,6 +48,9 @@ pub enum HcaError {
         size: usize,
     },
 
+    /// authRoot rotation is invalid
+    InvalidRotation(String),
+
     /// Leaf script contains a banned EVM opcode
     BannedOpcode {
         /// The banned opcode byte
@@ -94,8 +97,15 @@ impl fmt::Display for HcaError {
             HcaError::WitnessTooLarge { size } => {
                 write!(f, "Witness size {} exceeds maximum", size)
             }
+            HcaError::InvalidRotation(msg) => {
+                write!(f, "Invalid authRoot rotation: {}", msg)
+            }
             HcaError::BannedOpcode { opcode, name } => {
-                write!(f, "Banned opcode in leaf script: {} (0x{:02X})", name, opcode)
+                write!(
+                    f,
+                    "Banned opcode in leaf script: {} (0x{:02X})",
+                    name, opcode
+                )
             }
             HcaError::RlpEncodingError(msg) => {
                 write!(f, "RLP encoding error: {}", msg)
