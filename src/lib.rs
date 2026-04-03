@@ -17,6 +17,7 @@
 
 pub mod constants;
 pub mod error;
+pub mod evm;
 pub mod hash;
 pub mod address;
 pub mod merkle;
