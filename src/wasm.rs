@@ -63,8 +63,9 @@ pub fn create_hca_account(leaves_json: &str) -> Result<String, JsValue> {
                     .unwrap_or_default(),
                 l["description"].as_str().unwrap_or(""),
             )
+            .map_err(|e| JsValue::from_str(&e.to_string()))
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let tree = MerkleTree::new(leaves.clone()).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
@@ -115,8 +116,9 @@ pub fn generate_proof(leaves_json: &str, leaf_index: usize) -> Result<String, Js
                     .unwrap_or_default(),
                 l["description"].as_str().unwrap_or(""),
             )
+            .map_err(|e| JsValue::from_str(&e.to_string()))
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let tree = MerkleTree::new(leaves.clone()).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
@@ -190,8 +192,9 @@ pub fn build_witness(
                     .unwrap_or_default(),
                 l["description"].as_str().unwrap_or(""),
             )
+            .map_err(|e| JsValue::from_str(&e.to_string()))
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let tx: serde_json::Value =
         serde_json::from_str(tx_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
