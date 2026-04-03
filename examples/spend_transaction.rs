@@ -40,6 +40,7 @@ fn main() {
         from: from_address,
         to: [0x12; 20],
         value: 1_000_000_000_000_000u128, // 0.001 ETH
+        data: vec![],
         gas_limit: 100_000,
         max_fee_per_gas: 50_000_000_000u128,
         max_priority_fee_per_gas: 2_000_000_000u128,
