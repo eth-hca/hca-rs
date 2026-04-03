@@ -167,6 +167,65 @@ impl HCAWitness {
     }
 }
 
+/// Authorization request to replace an account's `authRoot`.
+///
+/// Per EIP-8215 §authRoot rotation:
+/// - The rotation tx MUST NOT transfer value or execute external calls
+/// - The new `auth_root` MUST be a non-zero 32-byte value
+/// - Signed with the `HCARotate` domain tag to prevent cross-context replay
+///
+/// The rotation leaf script inside the current auth tree validates
+/// the signature over this hash before the node replaces `authRoot`.
+#[derive(Clone, Debug)]
+pub struct RotationRequest {
+    /// Chain ID — prevents cross-chain replay
+    pub chain_id: u64,
+    /// Current account nonce
+    pub nonce: u64,
+    /// HCA account address being rotated
+    pub from: [u8; 20],
+    /// The new auth_root to replace the current one
+    pub new_auth_root: [u8; 32],
+}
+
+impl RotationRequest {
+    /// Create a new rotation request, validating that `new_auth_root` is non-zero.
+    ///
+    /// Returns `Err(HcaError::InvalidRotation)` if `new_auth_root` is all zeros.
+    pub fn new(
+        chain_id: u64,
+        nonce: u64,
+        from: [u8; 20],
+        new_auth_root: [u8; 32],
+    ) -> HcaResult<Self> {
+        if new_auth_root == [0u8; 32] {
+            return Err(HcaError::InvalidRotation(
+                "new_auth_root must not be zero".to_string(),
+            ));
+        }
+        Ok(Self { chain_id, nonce, from, new_auth_root })
+    }
+
+    /// Compute the signing hash for this rotation request.
+    ///
+    /// Uses the `HCARotate` domain tag to prevent cross-context replay
+    /// with regular transaction signing hashes.
+    ///
+    /// Formula:
+    /// ```text
+    /// rotation_hash = tagged_hash("HCARotate",
+    ///   chain_id || nonce || from || new_auth_root)
+    /// ```
+    pub fn signing_hash(&self) -> [u8; 32] {
+        let mut data = Vec::with_capacity(8 + 8 + 20 + 32);
+        data.extend_from_slice(&self.chain_id.to_be_bytes());
+        data.extend_from_slice(&self.nonce.to_be_bytes());
+        data.extend_from_slice(&self.from);
+        data.extend_from_slice(&self.new_auth_root);
+        tagged_hash(tags::ROTATE, &data)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -337,5 +396,73 @@ mod tests {
         let result = witness.encode();
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), HcaError::WitnessNotSigned);
+    }
+
+    // ── Rotation tests ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_rotation_request_valid() {
+        let req = RotationRequest::new(1, 0, [0x01u8; 20], [0xABu8; 32]);
+        assert!(req.is_ok());
+    }
+
+    #[test]
+    fn test_rotation_request_rejects_zero_auth_root() {
+        let result = RotationRequest::new(1, 0, [0x01u8; 20], [0u8; 32]);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), HcaError::InvalidRotation(_)));
+    }
+
+    #[test]
+    fn test_rotation_signing_hash_deterministic() {
+        let req = RotationRequest::new(1, 0, [0x01u8; 20], [0xABu8; 32]).unwrap();
+        assert_eq!(req.signing_hash(), req.signing_hash());
+    }
+
+    #[test]
+    fn test_rotation_signing_hash_chain_separation() {
+        let req1 = RotationRequest::new(1, 0, [0x01u8; 20], [0xABu8; 32]).unwrap();
+        let req2 = RotationRequest::new(11155111, 0, [0x01u8; 20], [0xABu8; 32]).unwrap();
+        assert_ne!(
+            req1.signing_hash(),
+            req2.signing_hash(),
+            "Different chain_id must produce different rotation hash"
+        );
+    }
+
+    #[test]
+    fn test_rotation_signing_hash_differs_from_tx_hash() {
+        // Same fields — rotation hash must differ from tx signing hash
+        let new_root = [0xABu8; 32];
+        let req = RotationRequest::new(1, 0, [0x01u8; 20], new_root).unwrap();
+
+        let tx = TxMessage {
+            chain_id: 1,
+            nonce: 0,
+            from: [0x01u8; 20],
+            to: [0u8; 20],
+            value: 0,
+            data: vec![],
+            gas_limit: 21000,
+            max_fee_per_gas: 1_000_000_000u128,
+            max_priority_fee_per_gas: 100_000_000u128,
+        };
+
+        assert_ne!(
+            req.signing_hash(),
+            tx.signing_hash(&new_root),
+            "Rotation hash must differ from tx signing hash — domain separation"
+        );
+    }
+
+    #[test]
+    fn test_rotation_new_auth_root_sensitivity() {
+        let req1 = RotationRequest::new(1, 0, [0x01u8; 20], [0xABu8; 32]).unwrap();
+        let req2 = RotationRequest::new(1, 0, [0x01u8; 20], [0xCDu8; 32]).unwrap();
+        assert_ne!(
+            req1.signing_hash(),
+            req2.signing_hash(),
+            "Different new_auth_root must produce different rotation hash"
+        );
     }
 }
