@@ -5,7 +5,7 @@
 //! - Second preimage attacks impossible by construction
 //! - Maximum depth: 32 levels (2^32 leaves max)
 
-use crate::constants::MAX_TREE_DEPTH;
+use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
 use crate::hash::{tagged_hash, tags};
 use serde::{Deserialize, Serialize};
@@ -26,13 +26,22 @@ pub struct Leaf {
 }
 
 impl Leaf {
-    /// Create a new leaf
-    pub fn new(version: u8, script: Vec<u8>, description: &str) -> Self {
-        Self {
+    /// Create a new leaf, validating version and script size.
+    ///
+    /// Returns `HcaError::InvalidLeafVersion` if version is `0x00`.
+    /// Returns `HcaError::LeafScriptTooLarge` if script exceeds `MAX_LEAF_SCRIPT_SIZE`.
+    pub fn new(version: u8, script: Vec<u8>, description: &str) -> HcaResult<Self> {
+        if version == 0x00 {
+            return Err(HcaError::InvalidLeafVersion { version });
+        }
+        if script.len() > MAX_LEAF_SCRIPT_SIZE {
+            return Err(HcaError::LeafScriptTooLarge { size: script.len() });
+        }
+        Ok(Self {
             version,
             script,
             description: description.to_string(),
-        }
+        })
     }
 
     /// Compute leaf hash
@@ -205,7 +214,7 @@ mod tests {
     use super::*;
 
     fn leaf(script: &[u8], desc: &str) -> Leaf {
-        Leaf::new(0x01, script.to_vec(), desc)
+        Leaf::new(0x01, script.to_vec(), desc).unwrap()
     }
 
     #[test]
@@ -286,14 +295,37 @@ mod tests {
 
     #[test]
     fn test_invalid_leaf_version() {
-        let l = Leaf::new(0x00, b"script".to_vec(), "invalid");
-        assert!(!l.is_valid_version());
+        let result = Leaf::new(0x00, b"script".to_vec(), "invalid");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            HcaError::InvalidLeafVersion { version: 0x00 }
+        );
     }
 
     #[test]
     fn test_valid_leaf_versions() {
-        assert!(Leaf::new(0x01, vec![], "v1").is_valid_version());
-        assert!(Leaf::new(0x02, vec![], "v2").is_valid_version());
-        assert!(Leaf::new(0xFF, vec![], "vFF").is_valid_version());
+        assert!(Leaf::new(0x01, vec![], "v1").is_ok());
+        assert!(Leaf::new(0x02, vec![], "v2").is_ok());
+        assert!(Leaf::new(0xFF, vec![], "vFF").is_ok());
+    }
+
+    #[test]
+    fn test_leaf_script_too_large() {
+        use crate::constants::MAX_LEAF_SCRIPT_SIZE;
+        let oversized = vec![0x01u8; MAX_LEAF_SCRIPT_SIZE + 1];
+        let result = Leaf::new(0x01, oversized.clone(), "oversized");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            HcaError::LeafScriptTooLarge { size: oversized.len() }
+        );
+    }
+
+    #[test]
+    fn test_leaf_script_at_max_size() {
+        use crate::constants::MAX_LEAF_SCRIPT_SIZE;
+        let max_script = vec![0x01u8; MAX_LEAF_SCRIPT_SIZE];
+        assert!(Leaf::new(0x01, max_script, "max").is_ok());
     }
 }

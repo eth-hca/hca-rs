@@ -86,7 +86,7 @@ fn test_address_derivation_vectors() {
                 if let Some(leaf_data) = vector.get("leaf") {
                     let version = decode_hex(leaf_data["version"].as_str().unwrap())[0];
                     let script = decode_hex(leaf_data["script"].as_str().unwrap());
-                    let leaf = Leaf::new(version, script, description);
+                    let leaf = Leaf::new(version, script, description).unwrap();
                     let tree = MerkleTree::new(vec![leaf]).unwrap();
                     tree.auth_root()
                 } else if let Some(leaves_data) = vector.get("leaves") {
@@ -98,7 +98,7 @@ fn test_address_derivation_vectors() {
                         .map(|(idx, l)| {
                             let version = decode_hex(l["version"].as_str().unwrap())[0];
                             let script = decode_hex(l["script"].as_str().unwrap());
-                            Leaf::new(version, script, &format!("leaf_{}", idx))
+                            Leaf::new(version, script, &format!("leaf_{}", idx)).unwrap()
                         })
                         .collect();
                     let tree = MerkleTree::new(leaves).unwrap();
@@ -150,7 +150,7 @@ fn test_merkle_proof_vectors() {
             .map(|(idx, l)| {
                 let version = decode_hex(l["version"].as_str().unwrap())[0];
                 let script = decode_hex(l["script"].as_str().unwrap());
-                Leaf::new(version, script, &format!("leaf_{}", idx))
+                Leaf::new(version, script, &format!("leaf_{}", idx)).unwrap()
             })
             .collect();
 

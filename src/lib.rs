@@ -41,9 +41,9 @@ mod integration_tests {
     fn test_full_hca_flow() {
         // 1. Create leaves
         let leaves = vec![
-            Leaf::new(0x01, b"primary_ecdsa_script".to_vec(), "Primary key"),
-            Leaf::new(0x01, b"recovery_ecdsa_script".to_vec(), "Recovery key"),
-            Leaf::new(0x01, b"timelock_script".to_vec(), "Timelock 30 days"),
+            Leaf::new(0x01, b"primary_ecdsa_script".to_vec(), "Primary key").unwrap(),
+            Leaf::new(0x01, b"recovery_ecdsa_script".to_vec(), "Recovery key").unwrap(),
+            Leaf::new(0x01, b"timelock_script".to_vec(), "Timelock 30 days").unwrap(),
         ];
 
         // 2. Build Merkle tree
