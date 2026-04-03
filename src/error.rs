@@ -48,6 +48,14 @@ pub enum HcaError {
         size: usize,
     },
 
+    /// Leaf script contains a banned EVM opcode
+    BannedOpcode {
+        /// The banned opcode byte
+        opcode: u8,
+        /// Human-readable opcode name
+        name: String,
+    },
+
     /// RLP encoding error
     RlpEncodingError(String),
 
@@ -85,6 +93,9 @@ impl fmt::Display for HcaError {
             }
             HcaError::WitnessTooLarge { size } => {
                 write!(f, "Witness size {} exceeds maximum", size)
+            }
+            HcaError::BannedOpcode { opcode, name } => {
+                write!(f, "Banned opcode in leaf script: {} (0x{:02X})", name, opcode)
             }
             HcaError::RlpEncodingError(msg) => {
                 write!(f, "RLP encoding error: {}", msg)
