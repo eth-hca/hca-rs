@@ -36,6 +36,9 @@ impl Leaf {
         if version == 0x00 {
             return Err(HcaError::InvalidLeafVersion { version });
         }
+        if script.is_empty() {
+            return Err(HcaError::EmptyLeafScript);
+        }
         if script.len() > MAX_LEAF_SCRIPT_SIZE {
             return Err(HcaError::LeafScriptTooLarge { size: script.len() });
         }
@@ -92,6 +95,14 @@ impl MerkleTree {
         if MAX_TREE_DEPTH < usize::BITS as usize && leaves.len() > (1usize << MAX_TREE_DEPTH) {
             let depth = (leaves.len() as f64).log2().ceil() as usize;
             return Err(HcaError::TreeTooDeep { depth });
+        }
+
+        // Detect duplicate leaves by comparing hashes
+        let hashes: Vec<[u8; 32]> = leaves.iter().map(|l| l.hash()).collect();
+        for i in 1..hashes.len() {
+            if hashes[..i].contains(&hashes[i]) {
+                return Err(HcaError::DuplicateLeaf { index: i });
+            }
         }
 
         let size = next_power_of_two(leaves.len());
@@ -310,9 +321,9 @@ mod tests {
 
     #[test]
     fn test_valid_leaf_versions() {
-        assert!(Leaf::new(0x01, vec![], "v1").is_ok());
-        assert!(Leaf::new(0x02, vec![], "v2").is_ok());
-        assert!(Leaf::new(0xFF, vec![], "vFF").is_ok());
+        assert!(Leaf::new(0x01, b"script".to_vec(), "v1").is_ok());
+        assert!(Leaf::new(0x02, b"script".to_vec(), "v2").is_ok());
+        assert!(Leaf::new(0xFF, b"script".to_vec(), "vFF").is_ok());
     }
 
     #[test]
@@ -334,5 +345,56 @@ mod tests {
         use crate::constants::MAX_LEAF_SCRIPT_SIZE;
         let max_script = vec![0x01u8; MAX_LEAF_SCRIPT_SIZE];
         assert!(Leaf::new(0x01, max_script, "max").is_ok());
+    }
+
+    // ── Input validation tests ────────────────────────────────────────────────
+
+    #[test]
+    fn test_leaf_rejects_empty_script() {
+        let result = Leaf::new(0x01, vec![], "empty");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), HcaError::EmptyLeafScript);
+    }
+
+    #[test]
+    fn test_leaf_rejects_version_zero() {
+        let result = Leaf::new(0x00, b"script".to_vec(), "bad version");
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            HcaError::InvalidLeafVersion { version: 0x00 }
+        ));
+    }
+
+    #[test]
+    fn test_tree_rejects_duplicate_leaves() {
+        let leaves = vec![
+            leaf(b"same script", "first"),
+            leaf(b"same script", "second"),
+        ];
+        let result = MerkleTree::new(leaves);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            HcaError::DuplicateLeaf { .. }
+        ));
+    }
+
+    #[test]
+    fn test_tree_rejects_empty_leaves() {
+        let result = MerkleTree::new(vec![]);
+        assert_eq!(result.unwrap_err(), HcaError::EmptyTree);
+    }
+
+    #[test]
+    fn test_verify_rejects_deep_proof() {
+        use crate::constants::MAX_TREE_DEPTH;
+        let proof = MerkleProof {
+            leaf_index: 0,
+            siblings: vec![[0u8; 32]; MAX_TREE_DEPTH + 1],
+        };
+        let result = MerkleTree::verify(&[0u8; 32], &proof, &[0u8; 32]);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), HcaError::TreeTooDeep { .. }));
     }
 }

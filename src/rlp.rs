@@ -462,7 +462,9 @@ pub fn decode_hca_tx(raw: &[u8]) -> HcaResult<(TxMessage, HCAWitness)> {
         siblings,
     };
     let mut witness = HCAWitness::build(&leaf, proof);
-    witness.attach_signature(witness_data);
+    if !witness_data.is_empty() {
+        witness.attach_signature(witness_data)?;
+    }
 
     Ok((tx, witness))
 }
@@ -694,7 +696,9 @@ mod tests {
         let proof = tree.proof(0).unwrap();
 
         let mut witness = HCAWitness::build(&leaves[0], proof);
-        witness.attach_signature(vec![0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe]);
+        witness
+            .attach_signature(vec![0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe])
+            .unwrap();
 
         let tx = TxMessage {
             chain_id: 1,
@@ -773,7 +777,7 @@ mod tests {
             siblings: vec![],
         };
         let mut witness = HCAWitness::build(&leaf, proof);
-        witness.attach_signature(vec![0x01]);
+        witness.attach_signature(vec![0x01]).unwrap();
 
         let tx = TxMessage {
             chain_id: 11155111,

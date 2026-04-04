@@ -55,7 +55,7 @@ fn main() {
 
     // Attach signature (simulated - in production, wallet signs signing_hash)
     let signature = vec![0xAAu8; 65]; // Dummy 65-byte ECDSA signature
-    witness.attach_signature(signature);
+    witness.attach_signature(signature).unwrap();
 
     println!("from:         0x{}", hex::encode(from_address));
     println!("to:           0x{}", hex::encode(tx.to));
