@@ -12,8 +12,14 @@
 //   constants — Protocol constants
 //   wasm      — WASM bindings (feature = "wasm")
 //
-// WASM bindings expose these operations to JavaScript for use in
-// browser-based wallets via wasm-bindgen.
+// no_std support: compile without the `std` feature for embedded/WASM
+// environments.  All crypto and Merkle operations work with alloc only.
+// serde_json and hex formatting require the `std` feature.
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 
 pub mod address;
 pub mod constants;
