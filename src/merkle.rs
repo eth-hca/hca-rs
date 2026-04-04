@@ -9,8 +9,8 @@ use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
 use crate::evm::opcode::validate_leaf_script;
 use crate::hash::{tagged_hash, tags};
-use subtle::ConstantTimeEq;
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
 
 /// HCA spending condition leaf
 #[derive(Clone, Debug, Serialize, Deserialize)]
