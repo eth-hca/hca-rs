@@ -22,6 +22,7 @@
 extern crate alloc;
 
 pub mod address;
+pub mod builder;
 pub mod constants;
 pub mod error;
 pub mod evm;
@@ -35,6 +36,7 @@ pub mod wasm;
 
 // Re-export most common types for convenience
 pub use address::derive_address;
+pub use builder::{TreeBuilder, TxBuilder};
 pub use error::{HcaError, HcaResult};
 pub use hash::{keccak256, tagged_hash};
 pub use merkle::{Leaf, MerkleProof, MerkleTree};
