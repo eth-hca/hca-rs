@@ -101,8 +101,14 @@ impl HCAWitness {
     }
 
     /// Attach signature data to the witness
-    pub fn attach_signature(&mut self, signature: Vec<u8>) {
+    ///
+    /// Returns `Err(HcaError::EmptySignature)` if `signature` is empty.
+    pub fn attach_signature(&mut self, signature: Vec<u8>) -> HcaResult<()> {
+        if signature.is_empty() {
+            return Err(HcaError::EmptySignature);
+        }
         self.witness_data = signature;
+        Ok(())
     }
 
     /// Check if witness has been signed
@@ -358,7 +364,7 @@ mod tests {
         };
 
         let mut witness = HCAWitness::build(&leaf, proof);
-        witness.attach_signature(vec![0x01, 0x02, 0x03]);
+        witness.attach_signature(vec![0x01, 0x02, 0x03]).unwrap();
         assert!(witness.is_signed());
     }
 
@@ -385,7 +391,9 @@ mod tests {
         };
         let mut witness = HCAWitness::build(&leaf, proof);
         // Attach oversized signature to push encoded size over MAX_WITNESS_SIZE
-        witness.attach_signature(vec![0xAAu8; MAX_WITNESS_SIZE]);
+        witness
+            .attach_signature(vec![0xAAu8; MAX_WITNESS_SIZE])
+            .unwrap();
         let result = witness.encode();
         assert!(result.is_err());
         assert!(matches!(
@@ -406,6 +414,33 @@ mod tests {
         let result = witness.encode();
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), HcaError::WitnessNotSigned);
+    }
+
+    // ── Input validation tests ────────────────────────────────────────────────
+
+    #[test]
+    fn test_attach_empty_signature_fails() {
+        let leaf = Leaf::new(0x01, b"script".to_vec(), "test").unwrap();
+        let proof = MerkleProof {
+            leaf_index: 0,
+            siblings: vec![],
+        };
+        let mut witness = HCAWitness::build(&leaf, proof);
+        let result = witness.attach_signature(vec![]);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), HcaError::EmptySignature);
+    }
+
+    #[test]
+    fn test_attach_signature_succeeds_with_data() {
+        let leaf = Leaf::new(0x01, b"script".to_vec(), "test").unwrap();
+        let proof = MerkleProof {
+            leaf_index: 0,
+            siblings: vec![],
+        };
+        let mut witness = HCAWitness::build(&leaf, proof);
+        assert!(witness.attach_signature(vec![0xAB; 65]).is_ok());
+        assert!(witness.is_signed());
     }
 
     // ── Rotation tests ────────────────────────────────────────────────────────
