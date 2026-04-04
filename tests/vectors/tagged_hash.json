@@ -1,60 +1,60 @@
 {
     "description": "Tagged hash test vectors for HCA domain separation",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "vectors": [
         {
             "description": "Empty data with ADDR tag",
             "tag": "HCAAddr",
             "data": "0x",
-            "expected": "computed_at_runtime"
+            "expected": "0x928d22eda5abaf7b5bf49f76075f9a3b526572c6d5feeda98069b65a2ac2df19"
         },
         {
             "description": "32-byte zero data with ADDR tag",
             "tag": "HCAAddr",
             "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "expected": "computed_at_runtime"
+            "expected": "0x1e4da9256a7949e924546559e20131ccd914c72abd6f95f26b5497acfe10ae66"
         },
         {
             "description": "32-byte zero data with LEAF tag",
             "tag": "HCALeaf",
             "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "expected": "computed_at_runtime"
+            "expected": "0x5ab9005e0931a81aa44888fa8730900f2edc296263965da5c570f6d794752d2e"
         },
         {
             "description": "32-byte zero data with BRANCH tag",
             "tag": "HCABranch",
             "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "expected": "computed_at_runtime"
+            "expected": "0xbfc9914ed60c233470655ca5b3619ad24b6ca744dfea4344076fccb88ef02230"
         },
         {
             "description": "32-byte zero data with WITNESS tag",
             "tag": "HCAWitness",
             "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "expected": "computed_at_runtime"
+            "expected": "0x3f2d909a7921dbe643780ae9477a0988a0c0698416171d49095c9623bfc84cc0"
         },
         {
             "description": "Test data 'hello world' with ADDR tag",
             "tag": "HCAAddr",
             "data": "0x68656c6c6f20776f726c64",
-            "expected": "computed_at_runtime"
+            "expected": "0x8335cde7234aee56598cfdc227e6a257d49d04e3617ed59f65e82a15950ea9af"
         },
         {
             "description": "Leaf with version 0x01 and empty script",
             "tag": "HCALeaf",
             "data": "0x01",
-            "expected": "computed_at_runtime"
+            "expected": "0x80eb088b5745e8a34616c9c3cf5d15c46f90996c7167fb3159a8f56289f5db52"
         },
         {
             "description": "Leaf with version 0x01 and sample script",
             "tag": "HCALeaf",
             "data": "0x014f505f434845434b534947",
-            "expected": "computed_at_runtime"
+            "expected": "0x004ca8fe2b06e4e08705ccfc3f70c7e12df49c179c1725a6c0b1f0019ce67d69"
         },
         {
             "description": "Branch hash with two zero hashes",
             "tag": "HCABranch",
             "data": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-            "expected": "computed_at_runtime"
+            "expected": "0xda0fe4c670c5a51d784dce007adf47dee771d85a65f367f3fa4ac9f576b88117"
         }
     ]
 }

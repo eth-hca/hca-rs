@@ -1,27 +1,27 @@
 {
     "description": "HCA address derivation test vectors",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "formula": "address = keccak256(tagged_hash('HCAAddr', auth_root))[12:]",
     "vectors": [
         {
             "description": "Zero auth_root",
             "auth_root": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "expected_address": "computed_at_runtime"
+            "expected_address": "0xe20131ccd914c72abd6f95f26b5497acfe10ae66"
         },
         {
             "description": "All-ones auth_root",
             "auth_root": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            "expected_address": "computed_at_runtime"
+            "expected_address": "0x681155c865dd363cac89dbaea07584e24decf299"
         },
         {
             "description": "Sample auth_root 1",
             "auth_root": "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-            "expected_address": "computed_at_runtime"
+            "expected_address": "0xcc861f5327173d5c1b9ea5b9308b96575caab19a"
         },
         {
             "description": "Sample auth_root 2",
             "auth_root": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-            "expected_address": "computed_at_runtime"
+            "expected_address": "0xb242088c669047dadef87dab6fbe504e595beaee"
         },
         {
             "description": "Single leaf tree - primary key",
@@ -30,7 +30,7 @@
                 "version": "0x01",
                 "script": "0x4f505f434845434b5349475f7072696d617279"
             },
-            "expected_address": "computed_at_runtime"
+            "expected_address": "0xb63167ce12ea738630b0e2f3ed61b7682c8e2b81"
         },
         {
             "description": "Two leaf tree - primary and recovery",
@@ -45,7 +45,7 @@
                     "script": "0x7265636f766572795f6b6579"
                 }
             ],
-            "expected_address": "computed_at_runtime"
+            "expected_address": "0x5208b95095aab379f151acfc850ad36e224ad35e"
         }
     ]
 }
