@@ -2,7 +2,10 @@
 //!
 //! All fallible operations return `HcaResult<T>` for consistent error handling.
 
-use std::fmt;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+
+use core::fmt;
 
 /// Unified error type for all HCA operations
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -159,6 +162,7 @@ impl fmt::Display for HcaError {
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for HcaError {}
 
 /// Result type for HCA operations
@@ -181,6 +185,7 @@ mod tests {
         assert!(err.to_string().contains("3"));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_error_implements_std_error() {
         let err: Box<dyn std::error::Error> = Box::new(HcaError::EmptyTree);
