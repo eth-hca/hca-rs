@@ -95,7 +95,7 @@ fuzz_target!(|data: &[u8]| {
     // Test signature attachment
     if data.len() > 150 {
         let sig = data[150..].to_vec();
-        witness.attach_signature(sig);
+        let _ = witness.attach_signature(sig);
         let _ = witness.is_signed();
     }
 });
