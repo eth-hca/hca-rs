@@ -467,6 +467,8 @@ pub fn decode_hca_tx(raw: &[u8]) -> HcaResult<(TxMessage, HCAWitness)> {
 }
 
 /// Helper: decode a big-endian usize from raw bytes (no RLP prefix)
+///
+/// Uses u64 internally to stay compatible with 32-bit targets (WASM).
 fn decode_usize_be(bytes: &[u8]) -> HcaResult<usize> {
     if bytes.len() > 8 {
         return Err(HcaError::RlpDecodeError(format!(
@@ -476,7 +478,10 @@ fn decode_usize_be(bytes: &[u8]) -> HcaResult<usize> {
     }
     let mut buf = [0u8; 8];
     buf[8 - bytes.len()..].copy_from_slice(bytes);
-    Ok(usize::from_be_bytes(buf))
+    let val = u64::from_be_bytes(buf);
+    usize::try_from(val).map_err(|_| {
+        HcaError::RlpDecodeError(format!("length {} overflows usize on this platform", val))
+    })
 }
 
 /// Helper: encode length as big-endian bytes (strip leading zeros)
