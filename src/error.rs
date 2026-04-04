@@ -79,6 +79,14 @@ pub enum HcaError {
 
     /// Empty witness signature
     EmptySignature,
+
+    /// Leaf script gas limit exceeded during validation
+    GasExhausted {
+        /// The gas limit in effect
+        limit: u64,
+        /// Gas consumed before exhaustion
+        consumed: u64,
+    },
 }
 
 impl fmt::Display for HcaError {
@@ -140,6 +148,13 @@ impl fmt::Display for HcaError {
             HcaError::EmptySignature => {
                 write!(f, "Witness signature must not be empty")
             }
+            HcaError::GasExhausted { limit, consumed } => {
+                write!(
+                    f,
+                    "Leaf script gas exhausted: consumed {} of {} limit",
+                    consumed, limit
+                )
+            }
         }
     }
 }
@@ -194,6 +209,10 @@ mod tests {
             HcaError::EmptyLeafScript,
             HcaError::DuplicateLeaf { index: 2 },
             HcaError::EmptySignature,
+            HcaError::GasExhausted {
+                limit: 100_000,
+                consumed: 100_001,
+            },
         ];
         for err in variants {
             assert!(!err.to_string().is_empty(), "Display missing for {:?}", err);

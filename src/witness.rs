@@ -120,14 +120,19 @@ impl HCAWitness {
     ///
     /// Gas cost depends on:
     /// - Merkle proof depth
-    /// - Leaf script execution cost
-    /// - Signature verification cost
+    /// - Static gas of leaf script opcodes (per EVM Berlin schedule)
+    ///
+    /// Returns the actual static gas consumed by the script if it validates,
+    /// or `MAX_LEAF_GAS` as a conservative upper bound if the script cannot
+    /// be analysed (e.g. contains a banned opcode — those are rejected at
+    /// `Leaf::new()` time so this path is a defensive fallback).
     pub fn estimate_gas(&self) -> u64 {
         use crate::constants::{MAX_LEAF_GAS, MERKLE_BASE_GAS, MERKLE_GAS_PER_LEVEL};
+        use crate::evm::opcode::validate_leaf_script;
 
         let proof_gas =
             MERKLE_BASE_GAS + (self.merkle_proof.siblings.len() as u64 * MERKLE_GAS_PER_LEVEL);
-        let leaf_gas = MAX_LEAF_GAS; // Conservative estimate
+        let leaf_gas = validate_leaf_script(&self.leaf_script).unwrap_or(MAX_LEAF_GAS); // fallback: conservative upper bound
 
         proof_gas + leaf_gas
     }

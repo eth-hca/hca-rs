@@ -7,4 +7,5 @@
 //! All submodules enforce the restrictions defined in EIP-8215
 //! §Leaf execution context.
 
+pub mod gas;
 pub mod opcode;
