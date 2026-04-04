@@ -243,10 +243,10 @@ mod tests {
         let tree = MerkleTree::new(leaves.clone()).unwrap();
         let root = tree.auth_root();
 
-        for i in 0..leaves.len() {
+        for (i, leaf) in leaves.iter().enumerate() {
             let proof = tree.proof(i).unwrap();
             assert!(
-                MerkleTree::verify(&leaves[i].hash(), &proof, &root).unwrap(),
+                MerkleTree::verify(&leaf.hash(), &proof, &root).unwrap(),
                 "Proof for leaf {} failed",
                 i
             );
@@ -320,7 +320,9 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
-            HcaError::LeafScriptTooLarge { size: oversized.len() }
+            HcaError::LeafScriptTooLarge {
+                size: oversized.len()
+            }
         );
     }
 
