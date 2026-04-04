@@ -7,6 +7,9 @@
 //!
 //! NOTE: This module is partially implemented. Full implementation in PR2.
 
+#[cfg(not(feature = "std"))]
+use alloc::{string::ToString, vec::Vec};
+
 use crate::error::{HcaError, HcaResult};
 use crate::hash::{tagged_hash, tags};
 use crate::merkle::{Leaf, MerkleProof};

@@ -10,6 +10,9 @@
 //! - List 0-55 bytes: [0xc0 + len, ...items]
 //! - List >55 bytes: [0xf7 + len_of_len, ...len_bytes, ...items]
 
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::constants::HCA_TX_TYPE;
 use crate::error::{HcaError, HcaResult};
 use crate::witness::{HCAWitness, TxMessage};

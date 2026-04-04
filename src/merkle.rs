@@ -5,6 +5,9 @@
 //! - Second preimage attacks impossible by construction
 //! - Maximum depth: 32 levels (2^32 leaves max)
 
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, string::ToString, vec, vec::Vec};
+
 use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
 use crate::evm::opcode::validate_leaf_script;
@@ -93,7 +96,7 @@ impl MerkleTree {
         }
 
         if MAX_TREE_DEPTH < usize::BITS as usize && leaves.len() > (1usize << MAX_TREE_DEPTH) {
-            let depth = (leaves.len() as f64).log2().ceil() as usize;
+            let depth = usize::BITS as usize - leaves.len().leading_zeros() as usize;
             return Err(HcaError::TreeTooDeep { depth });
         }
 
@@ -114,10 +117,11 @@ impl MerkleTree {
             level_0.push(last); // pad with last leaf
         }
 
+        // Integer log2: number of trailing zeros in a power-of-two equals its log2
         let depth = if size == 1 {
             0
         } else {
-            (size as f64).log2() as usize
+            size.trailing_zeros() as usize
         };
 
         // Build all levels bottom-up

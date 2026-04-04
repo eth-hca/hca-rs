@@ -25,6 +25,9 @@
 //! PUSH1–PUSH32 (0x60–0x7F) embed immediate data bytes that must be
 //! skipped during scanning to avoid false positives.
 
+#[cfg(not(feature = "std"))]
+use alloc::string::ToString;
+
 use crate::constants::MAX_LEAF_GAS;
 use crate::error::{HcaError, HcaResult};
 use crate::evm::gas::GasCounter;
