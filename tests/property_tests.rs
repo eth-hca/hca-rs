@@ -215,7 +215,7 @@ proptest! {
         let leaves: Vec<Leaf> = (0..leaf_count)
             .map(|i| Leaf {
                 version: 0x01,
-                script: vec![i as u8],
+                script: (i as u32).to_be_bytes().to_vec(),
                 description: String::new(),
             })
             .collect();
