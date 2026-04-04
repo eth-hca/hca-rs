@@ -25,14 +25,20 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run benchmarks
-        run: cargo bench --no-fail-fast
+        run: cargo bench --no-fail-fast 2>&1 | tee target/criterion/output.txt
+
+      - name: Collect benchmark results
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Find the first estimates.json produced by criterion and copy it to a fixed path
+          find target/criterion -name estimates.json | head -1 | xargs -I{} cp {} target/criterion/latest_estimates.json
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         if: github.ref == 'refs/heads/main'
         with:
           tool: 'cargo'
-          output-file-path: target/criterion/*/new/estimates.json
+          output-file-path: target/criterion/latest_estimates.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           alert-threshold: '150%'
