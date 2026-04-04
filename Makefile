@@ -124,7 +124,7 @@ check: fmt-check lint test-all
 # Run this before every push / PR
 # ─────────────────────────────────────────────
 
-ci: ci-fmt ci-lint ci-build ci-test ci-test-no-default ci-no-std
+ci: ci-fmt ci-lint ci-build ci-test ci-test-no-default ci-test-serde-only ci-no-std
 	@echo "✓ all local CI checks passed"
 
 ci-fmt:
@@ -146,6 +146,10 @@ ci-test:
 ci-test-no-default:
 	@echo "[ test no-default-features ]"
 	$(CARGO) test --no-default-features
+
+ci-test-serde-only:
+	@echo "[ test serde only (no std) ]"
+	$(CARGO) test --no-default-features --features serde
 
 ci-no-std:
 	@echo "[ no_std build ]"
