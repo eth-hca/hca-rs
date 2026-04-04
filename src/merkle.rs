@@ -9,6 +9,7 @@ use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
 use crate::evm::opcode::validate_leaf_script;
 use crate::hash::{tagged_hash, tags};
+use subtle::ConstantTimeEq;
 use serde::{Deserialize, Serialize};
 
 /// HCA spending condition leaf
@@ -189,7 +190,7 @@ impl MerkleTree {
             idx /= 2;
         }
 
-        Ok(&current == auth_root)
+        Ok(current.ct_eq(auth_root).into())
     }
 }
 
