@@ -12,11 +12,13 @@ use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
 use crate::evm::opcode::validate_leaf_script;
 use crate::hash::{tagged_hash, tags};
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
 /// HCA spending condition leaf
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Leaf {
     /// Leaf version byte
     /// 0x00 = invalid (reserved)
@@ -69,7 +71,8 @@ impl Leaf {
 }
 
 /// Merkle inclusion proof
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct MerkleProof {
     /// Index of the proven leaf
     pub leaf_index: usize,
