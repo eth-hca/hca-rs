@@ -67,6 +67,18 @@ pub enum HcaError {
 
     /// Invalid address format
     InvalidAddress,
+
+    /// Empty leaf script
+    EmptyLeafScript,
+
+    /// Duplicate leaf in Merkle tree
+    DuplicateLeaf {
+        /// Index of the first duplicate found
+        index: usize,
+    },
+
+    /// Empty witness signature
+    EmptySignature,
 }
 
 impl fmt::Display for HcaError {
@@ -119,6 +131,15 @@ impl fmt::Display for HcaError {
             HcaError::InvalidAddress => {
                 write!(f, "Invalid address format")
             }
+            HcaError::EmptyLeafScript => {
+                write!(f, "Leaf script must not be empty")
+            }
+            HcaError::DuplicateLeaf { index } => {
+                write!(f, "Duplicate leaf detected at index {}", index)
+            }
+            HcaError::EmptySignature => {
+                write!(f, "Witness signature must not be empty")
+            }
         }
     }
 }
@@ -149,5 +170,33 @@ mod tests {
     fn test_error_implements_std_error() {
         let err: Box<dyn std::error::Error> = Box::new(HcaError::EmptyTree);
         assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn test_all_error_variants_have_display() {
+        let variants: Vec<HcaError> = vec![
+            HcaError::EmptyTree,
+            HcaError::TreeTooDeep { depth: 33 },
+            HcaError::LeafIndexOutOfBounds { index: 1, count: 0 },
+            HcaError::InvalidLeafVersion { version: 0x00 },
+            HcaError::LeafScriptTooLarge { size: 99999 },
+            HcaError::ProofVerificationFailed,
+            HcaError::WitnessNotSigned,
+            HcaError::WitnessTooLarge { size: 99999 },
+            HcaError::InvalidRotation("test".to_string()),
+            HcaError::BannedOpcode {
+                opcode: 0xFF,
+                name: "SELFDESTRUCT".to_string(),
+            },
+            HcaError::RlpEncodingError("test".to_string()),
+            HcaError::RlpDecodeError("test".to_string()),
+            HcaError::InvalidAddress,
+            HcaError::EmptyLeafScript,
+            HcaError::DuplicateLeaf { index: 2 },
+            HcaError::EmptySignature,
+        ];
+        for err in variants {
+            assert!(!err.to_string().is_empty(), "Display missing for {:?}", err);
+        }
     }
 }
