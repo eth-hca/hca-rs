@@ -6,6 +6,7 @@ CARGO_NIGHTLY := $(shell which cargo 2>/dev/null || echo $(HOME)/.cargo/bin/carg
         bench bench-hash bench-merkle bench-address bench-flow \
         fuzz fuzz-merkle fuzz-proof fuzz-witness fuzz-rlp \
         example-create example-spend example-verify \
+        cli cli-help cli-demo \
         lint fmt fmt-check check clean
 
 # ─────────────────────────────────────────────
@@ -105,6 +106,57 @@ example-verify:
 	$(CARGO) run --example verify_proof
 
 # ─────────────────────────────────────────────
+# CLI
+# ─────────────────────────────────────────────
+
+# Build the hca binary (debug)
+cli:
+	$(CARGO) build --bin hca
+
+# Show full clap-generated help
+cli-help:
+	$(CARGO) run --bin hca -- --help
+
+# End-to-end demo: create-account → derive-address → generate-proof → verify-proof → signing-hash
+# Runs the full HCA flow in one command. No keys needed.
+cli-demo:
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "  HCA CLI demo — full flow (EIP-8215)"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	$(eval LEAVES := [{"version":"0x01","script":"0x6001","description":"Primary ECDSA"},{"version":"0x01","script":"0x6002","description":"Recovery key"},{"version":"0x01","script":"0x6003","description":"Timelock 30d"}])
+	@echo ""
+	@echo "▶ 1. create-account"
+	$(eval ACCOUNT := $(shell $(CARGO) run -q --bin hca -- create-account --leaves '$(LEAVES)'))
+	@echo '$(ACCOUNT)' | python3 -m json.tool
+	$(eval AUTH_ROOT  := $(shell echo '$(ACCOUNT)' | python3 -c "import sys,json; print(json.load(sys.stdin)['auth_root'])"))
+	$(eval ADDRESS    := $(shell echo '$(ACCOUNT)' | python3 -c "import sys,json; print(json.load(sys.stdin)['address'])"))
+	@echo ""
+	@echo "▶ 2. derive-address (roundtrip check)"
+	$(CARGO) run -q --bin hca -- derive-address --auth-root $(AUTH_ROOT)
+	@echo ""
+	@echo "▶ 3. generate-proof (leaf 0)"
+	$(eval PROOF_OUT  := $(shell $(CARGO) run -q --bin hca -- generate-proof --leaves '$(LEAVES)' --index 0))
+	@echo '$(PROOF_OUT)' | python3 -m json.tool
+	$(eval LEAF_HASH  := $(shell echo '$(PROOF_OUT)' | python3 -c "import sys,json; print(json.load(sys.stdin)['leaf_hash'])"))
+	$(eval PROOF_JSON := $(shell echo '$(PROOF_OUT)' | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps({'leaf_index':d['leaf_index'],'siblings':d['siblings']}))"))
+	@echo ""
+	@echo "▶ 4. verify-proof"
+	$(CARGO) run -q --bin hca -- verify-proof \
+		--leaf-hash $(LEAF_HASH) \
+		--proof '$(PROOF_JSON)' \
+		--auth-root $(AUTH_ROOT)
+	@echo ""
+	@echo "▶ 5. signing-hash"
+	$(eval TX := {"chain_id":11155111,"nonce":0,"from":"$(ADDRESS)","to":"0x000000000000000000000000000000000000dead","value":"1000000000000000","gas_limit":21000,"max_fee_per_gas":"1000000000","max_priority_fee_per_gas":"100000000"})
+	$(CARGO) run -q --bin hca -- signing-hash \
+		--tx '$(TX)' \
+		--leaf-hash $(LEAF_HASH)
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "  ✓ demo complete"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# ─────────────────────────────────────────────
 # Lint & Format
 # ─────────────────────────────────────────────
 
@@ -153,7 +205,7 @@ ci-test-serde-only:
 
 ci-no-std:
 	@echo "[ no_std build ]"
-	$(CARGO) build --no-default-features --target thumbv7em-none-eabihf
+	$(CARGO) build --lib --no-default-features --target thumbv7em-none-eabihf
 
 # ─────────────────────────────────────────────
 # Clean
