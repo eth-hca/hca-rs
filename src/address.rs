@@ -24,11 +24,13 @@ pub fn derive_address(auth_root: &[u8; 32]) -> [u8; 20] {
 }
 
 /// Format address as hex string with 0x prefix
+#[cfg(feature = "std")]
 pub fn address_to_hex(address: &[u8; 20]) -> String {
     format!("0x{}", hex::encode(address))
 }
 
 /// Format auth_root as hex string with 0x prefix
+#[cfg(feature = "std")]
 pub fn auth_root_to_hex(auth_root: &[u8; 32]) -> String {
     format!("0x{}", hex::encode(auth_root))
 }
@@ -81,6 +83,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_address_hex_format() {
         let auth_root = [0u8; 32];

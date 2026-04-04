@@ -120,6 +120,38 @@ fmt-check:
 check: fmt-check lint test-all
 
 # ─────────────────────────────────────────────
+# Local CI — mirrors GitHub Actions jobs
+# Run this before every push / PR
+# ─────────────────────────────────────────────
+
+ci: ci-fmt ci-lint ci-build ci-test ci-test-no-default ci-no-std
+	@echo "✓ all local CI checks passed"
+
+ci-fmt:
+	@echo "[ fmt ]"
+	$(CARGO) fmt --all -- --check
+
+ci-lint:
+	@echo "[ clippy ]"
+	$(CARGO) clippy --all-targets --all-features -- -D warnings
+
+ci-build:
+	@echo "[ build ]"
+	$(CARGO) build --all-features
+
+ci-test:
+	@echo "[ test ]"
+	$(CARGO) test --all-features
+
+ci-test-no-default:
+	@echo "[ test no-default-features ]"
+	$(CARGO) test --no-default-features
+
+ci-no-std:
+	@echo "[ no_std build ]"
+	$(CARGO) build --no-default-features --target thumbv7em-none-eabihf
+
+# ─────────────────────────────────────────────
 # Clean
 # ─────────────────────────────────────────────
 

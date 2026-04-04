@@ -5,6 +5,9 @@
 //! - `tagged_hash` — domain-separated hash with BIP-340 style tagging
 //! - Domain separation tags for different HCA operations
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use tiny_keccak::{Hasher, Keccak};
 
 /// Compute Keccak-256 hash of input data
