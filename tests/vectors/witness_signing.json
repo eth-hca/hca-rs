@@ -1,6 +1,6 @@
 {
     "description": "HCA witness signing hash test vectors",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "formula": "signing_hash = tagged_hash('HCAWitness', chain_id || nonce || from || to || value || gas_limit || max_fee || max_priority_fee || leaf_hash)",
     "vectors": [
         {
@@ -16,7 +16,7 @@
                 "max_priority_fee_per_gas": "100000000"
             },
             "leaf_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "expected_signing_hash": "computed_at_runtime"
+            "expected_signing_hash": "0x6eb58ef834487619f2b0109cb61152ea2840793b503ce382dfa01548702848cb"
         },
         {
             "description": "Standard transaction on mainnet",
@@ -31,7 +31,7 @@
                 "max_priority_fee_per_gas": "2000000000"
             },
             "leaf_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
-            "expected_signing_hash": "computed_at_runtime"
+            "expected_signing_hash": "0x12ec3dc82893747cafc0bcc8c93499576cf3d820fdb59d3afd4b551682dac370"
         },
         {
             "description": "Large value transaction",
@@ -46,7 +46,7 @@
                 "max_priority_fee_per_gas": "5000000000"
             },
             "leaf_hash": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-            "expected_signing_hash": "computed_at_runtime"
+            "expected_signing_hash": "0x3355b44a2511b90b276446f9f1b202694542036bc44086b5da26599ac87f18e9"
         },
         {
             "description": "Cross-chain replay protection - same tx different chain",
@@ -71,8 +71,8 @@
                 "max_priority_fee_per_gas": "100000000"
             },
             "leaf_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "expected_signing_hash_mainnet": "computed_at_runtime",
-            "expected_signing_hash_sepolia": "computed_at_runtime",
+            "expected_signing_hash_mainnet": "0xae8f3a1df3273bc966c43caaa8eeb29086e496abcb4d05adbb310287571f48c3",
+            "expected_signing_hash_sepolia": "0xd0b1ef705cc6ec1d327820dde9a678c891e373eb4367cec783675a8317d7fad0",
             "note": "Signing hashes MUST be different to prevent cross-chain replay"
         },
         {
@@ -89,8 +89,8 @@
             },
             "leaf_hash_1": "0x1111111111111111111111111111111111111111111111111111111111111111",
             "leaf_hash_2": "0x2222222222222222222222222222222222222222222222222222222222222222",
-            "expected_signing_hash_1": "computed_at_runtime",
-            "expected_signing_hash_2": "computed_at_runtime",
+            "expected_signing_hash_1": "0x571dce6f5ee367774eb7072d8f5c171202225b283709bf0500d17c7bc0554ce4",
+            "expected_signing_hash_2": "0x3a38976a29ce77a635a3807231ab1c7986f7a10a73deedb1b27dc80ae4265d3a",
             "note": "Different leaf hashes MUST produce different signing hashes"
         }
     ]
