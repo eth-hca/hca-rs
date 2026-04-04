@@ -37,12 +37,10 @@ mod tests {
 
     #[test]
     fn test_constants_are_reasonable() {
-        // Verify constants are in expected ranges
-        assert!(MAX_TREE_DEPTH <= 64, "Tree depth should be reasonable");
-        assert!(MAX_TREE_DEPTH > 0, "Tree depth must be positive");
-
-        assert!(MAX_LEAF_SCRIPT_SIZE <= 1_000_000, "Script size should be reasonable");
-        assert!(MAX_WITNESS_SIZE <= 10_000_000, "Witness size should be reasonable");
+        // Compile-time sanity checks for const values
+        const _: () = assert!(MAX_TREE_DEPTH <= 64 && MAX_TREE_DEPTH > 0);
+        const _: () = assert!(MAX_LEAF_SCRIPT_SIZE <= 1_000_000);
+        const _: () = assert!(MAX_WITNESS_SIZE <= 10_000_000);
 
         assert_eq!(CHAIN_ID_MAINNET, 1, "Mainnet chain ID is 1");
         assert_eq!(CHAIN_ID_SEPOLIA, 11_155_111, "Sepolia chain ID is 11155111");
