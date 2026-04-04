@@ -15,14 +15,14 @@
 // WASM bindings expose these operations to JavaScript for use in
 // browser-based wallets via wasm-bindgen.
 
+pub mod address;
 pub mod constants;
 pub mod error;
 pub mod evm;
 pub mod hash;
-pub mod address;
 pub mod merkle;
-pub mod witness;
 pub mod rlp;
+pub mod witness;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;

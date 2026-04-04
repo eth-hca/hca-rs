@@ -60,7 +60,9 @@ fn bench_merkle_proof_verification(c: &mut Criterion) {
         let root = tree.auth_root();
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
-            b.iter(|| MerkleTree::verify(black_box(&leaf_hash), black_box(&proof), black_box(&root)));
+            b.iter(|| {
+                MerkleTree::verify(black_box(&leaf_hash), black_box(&proof), black_box(&root))
+            });
         });
     }
 
@@ -98,9 +100,13 @@ fn bench_leaf_hash(c: &mut Criterion) {
             description: String::from("Test leaf"),
         };
 
-        group.bench_with_input(BenchmarkId::from_parameter(script_size), script_size, |b, _| {
-            b.iter(|| black_box(&leaf).hash());
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(script_size),
+            script_size,
+            |b, _| {
+                b.iter(|| black_box(&leaf).hash());
+            },
+        );
     }
 
     group.finish();

@@ -161,7 +161,9 @@ impl HCAWitness {
 
         let encoded = encode_list(&fields);
         if encoded.len() > MAX_WITNESS_SIZE {
-            return Err(HcaError::WitnessTooLarge { size: encoded.len() });
+            return Err(HcaError::WitnessTooLarge {
+                size: encoded.len(),
+            });
         }
         Ok(encoded)
     }
@@ -203,7 +205,12 @@ impl RotationRequest {
                 "new_auth_root must not be zero".to_string(),
             ));
         }
-        Ok(Self { chain_id, nonce, from, new_auth_root })
+        Ok(Self {
+            chain_id,
+            nonce,
+            from,
+            new_auth_root,
+        })
     }
 
     /// Compute the signing hash for this rotation request.
@@ -381,7 +388,10 @@ mod tests {
         witness.attach_signature(vec![0xAAu8; MAX_WITNESS_SIZE]);
         let result = witness.encode();
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), HcaError::WitnessTooLarge { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            HcaError::WitnessTooLarge { .. }
+        ));
     }
 
     #[test]
