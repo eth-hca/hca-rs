@@ -88,7 +88,7 @@ impl MerkleTree {
             return Err(HcaError::EmptyTree);
         }
 
-        if leaves.len() > (1 << MAX_TREE_DEPTH) {
+        if MAX_TREE_DEPTH < usize::BITS as usize && leaves.len() > (1usize << MAX_TREE_DEPTH) {
             let depth = (leaves.len() as f64).log2().ceil() as usize;
             return Err(HcaError::TreeTooDeep { depth });
         }
@@ -143,6 +143,7 @@ impl MerkleTree {
         let mut siblings = Vec::with_capacity(self.depth);
         let mut idx = leaf_index;
 
+        #[allow(unknown_lints, clippy::manual_is_multiple_of)]
         for level in &self.nodes[..self.depth] {
             let sibling = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
             // Use last node if sibling is out of bounds (padding)
@@ -178,6 +179,7 @@ impl MerkleTree {
         let mut current = *leaf_hash;
         let mut idx = proof.leaf_index;
 
+        #[allow(unknown_lints, clippy::manual_is_multiple_of)]
         for sibling in &proof.siblings {
             current = if idx % 2 == 0 {
                 branch_hash(&current, sibling)
@@ -243,10 +245,10 @@ mod tests {
         let tree = MerkleTree::new(leaves.clone()).unwrap();
         let root = tree.auth_root();
 
-        for i in 0..leaves.len() {
+        for (i, leaf) in leaves.iter().enumerate() {
             let proof = tree.proof(i).unwrap();
             assert!(
-                MerkleTree::verify(&leaves[i].hash(), &proof, &root).unwrap(),
+                MerkleTree::verify(&leaf.hash(), &proof, &root).unwrap(),
                 "Proof for leaf {} failed",
                 i
             );
@@ -320,7 +322,9 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
-            HcaError::LeafScriptTooLarge { size: oversized.len() }
+            HcaError::LeafScriptTooLarge {
+                size: oversized.len()
+            }
         );
     }
 

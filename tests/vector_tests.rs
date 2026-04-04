@@ -40,12 +40,7 @@ fn test_tagged_hash_vectors() {
         let result = tagged_hash(tag, &data);
         let result_hex = encode_hex(&result);
 
-        println!(
-            "Vector {}: {} → {}",
-            i + 1,
-            description,
-            result_hex
-        );
+        println!("Vector {}: {} → {}", i + 1, description, result_hex);
 
         // Verify determinism
         let result2 = tagged_hash(tag, &data);
@@ -114,19 +109,17 @@ fn test_address_derivation_vectors() {
         let address = derive_address(&auth_root);
         let address_hex = encode_hex(&address);
 
-        println!(
-            "Vector {}: {} → {}",
-            i + 1,
-            description,
-            address_hex
-        );
+        println!("Vector {}: {} → {}", i + 1, description, address_hex);
 
         // Verify properties
         assert_eq!(address.len(), 20, "Address must be 20 bytes");
 
         // Verify determinism
         let address2 = derive_address(&auth_root);
-        assert_eq!(address, address2, "Address derivation must be deterministic");
+        assert_eq!(
+            address, address2,
+            "Address derivation must be deterministic"
+        );
     }
 }
 
@@ -277,12 +270,7 @@ fn test_witness_signing_vectors() {
             let signing_hash = tx.signing_hash(&leaf_hash);
             let signing_hash_hex = encode_hex(&signing_hash);
 
-            println!(
-                "Vector {}: {} → {}",
-                i + 1,
-                description,
-                signing_hash_hex
-            );
+            println!("Vector {}: {} → {}", i + 1, description, signing_hash_hex);
 
             // Verify determinism
             let signing_hash2 = tx.signing_hash(&leaf_hash);

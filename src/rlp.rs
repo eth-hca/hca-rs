@@ -334,6 +334,7 @@ pub fn decode_list(input: &[u8]) -> HcaResult<(Vec<u8>, usize)> {
 ///
 /// - `RlpDecodeError` if bytes are malformed or truncated
 /// - `RlpDecodeError` if the type byte is not `HCA_TX_TYPE`
+#[allow(unused_assignments)]
 pub fn decode_hca_tx(raw: &[u8]) -> HcaResult<(TxMessage, HCAWitness)> {
     use crate::merkle::{Leaf, MerkleProof};
 
@@ -467,6 +468,8 @@ pub fn decode_hca_tx(raw: &[u8]) -> HcaResult<(TxMessage, HCAWitness)> {
 }
 
 /// Helper: decode a big-endian usize from raw bytes (no RLP prefix)
+///
+/// Uses u64 internally to stay compatible with 32-bit targets (WASM).
 fn decode_usize_be(bytes: &[u8]) -> HcaResult<usize> {
     if bytes.len() > 8 {
         return Err(HcaError::RlpDecodeError(format!(
@@ -476,7 +479,10 @@ fn decode_usize_be(bytes: &[u8]) -> HcaResult<usize> {
     }
     let mut buf = [0u8; 8];
     buf[8 - bytes.len()..].copy_from_slice(bytes);
-    Ok(usize::from_be_bytes(buf))
+    let val = u64::from_be_bytes(buf);
+    usize::try_from(val).map_err(|_| {
+        HcaError::RlpDecodeError(format!("length {} overflows usize on this platform", val))
+    })
 }
 
 /// Helper: encode length as big-endian bytes (strip leading zeros)
@@ -678,7 +684,7 @@ mod tests {
     // ── Round-trip tests ──────────────────────────────────────────────────────
 
     fn make_test_tx_and_witness() -> (TxMessage, HCAWitness) {
-        use crate::merkle::{Leaf, MerkleProof, MerkleTree};
+        use crate::merkle::{Leaf, MerkleTree};
 
         let leaves = vec![
             Leaf::new(0x01, b"spend_script".to_vec(), "primary").unwrap(),
@@ -724,8 +730,14 @@ mod tests {
 
         assert_eq!(witness2.leaf_version, witness.leaf_version);
         assert_eq!(witness2.leaf_script, witness.leaf_script);
-        assert_eq!(witness2.merkle_proof.leaf_index, witness.merkle_proof.leaf_index);
-        assert_eq!(witness2.merkle_proof.siblings, witness.merkle_proof.siblings);
+        assert_eq!(
+            witness2.merkle_proof.leaf_index,
+            witness.merkle_proof.leaf_index
+        );
+        assert_eq!(
+            witness2.merkle_proof.siblings,
+            witness.merkle_proof.siblings
+        );
         assert_eq!(witness2.witness_data, witness.witness_data);
     }
 
