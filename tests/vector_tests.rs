@@ -1,91 +1,87 @@
-//! Test vector validation
+//! Cross-implementation test vector validation.
 //!
-//! These tests read JSON test vectors and validate that the implementation
-//! produces the expected results. They also serve to generate canonical
-//! test vectors for cross-implementation compatibility.
+//! Every `expected` field in the JSON vectors is a hardcoded hash/address —
+//! no `"computed_at_runtime"` placeholders.  These vectors are the canonical
+//! reference for hca-go and any future implementation.
 
 use hca_rs::address::derive_address;
-use hca_rs::hash::{tagged_hash, tags};
+use hca_rs::hash::tagged_hash;
 use hca_rs::merkle::{Leaf, MerkleTree};
 use hca_rs::witness::TxMessage;
 use serde_json::Value;
 use std::fs;
 
-/// Helper: decode hex string to bytes
+// ── helpers ───────────────────────────────────────────────────────────────────
+
 fn decode_hex(s: &str) -> Vec<u8> {
-    let s = s.strip_prefix("0x").unwrap_or(s);
-    hex::decode(s).expect("valid hex")
+    hex::decode(s.strip_prefix("0x").unwrap_or(s)).expect("valid hex")
 }
 
-/// Helper: encode bytes to hex string
-fn encode_hex(bytes: &[u8]) -> String {
-    format!("0x{}", hex::encode(bytes))
+fn encode_hex(b: &[u8]) -> String {
+    format!("0x{}", hex::encode(b))
 }
+
+fn decode_hex32(s: &str) -> [u8; 32] {
+    let v = decode_hex(s);
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&v);
+    arr
+}
+
+fn decode_hex20(s: &str) -> [u8; 20] {
+    let v = decode_hex(s);
+    let mut arr = [0u8; 20];
+    arr.copy_from_slice(&v);
+    arr
+}
+
+// ── tagged hash vectors ───────────────────────────────────────────────────────
 
 #[test]
 fn test_tagged_hash_vectors() {
-    let json_str = fs::read_to_string("tests/vectors/tagged_hash.json")
-        .expect("tagged_hash.json should exist");
+    let json_str = fs::read_to_string("tests/vectors/tagged_hash.json").expect("tagged_hash.json");
     let json: Value = serde_json::from_str(&json_str).expect("valid JSON");
 
-    let vectors = json["vectors"].as_array().expect("vectors array");
+    for (i, v) in json["vectors"].as_array().unwrap().iter().enumerate() {
+        let description = v["description"].as_str().unwrap();
+        let tag = v["tag"].as_str().unwrap();
+        let data = decode_hex(v["data"].as_str().unwrap());
+        let expected = v["expected"].as_str().unwrap();
 
-    println!("\n=== Tagged Hash Test Vectors ===");
-    for (i, vector) in vectors.iter().enumerate() {
-        let description = vector["description"].as_str().unwrap();
-        let tag = vector["tag"].as_str().unwrap();
-        let data_hex = vector["data"].as_str().unwrap();
-        let data = decode_hex(data_hex);
-
-        let result = tagged_hash(tag, &data);
-        let result_hex = encode_hex(&result);
-
-        println!("Vector {}: {} → {}", i + 1, description, result_hex);
-
-        // Verify determinism
-        let result2 = tagged_hash(tag, &data);
-        assert_eq!(result, result2, "Tagged hash must be deterministic");
-
-        // Verify domain separation: same data, different tags → different outputs
-        if tag == "HCAAddr" && !data.is_empty() {
-            let leaf_result = tagged_hash(tags::LEAF, &data);
-            assert_ne!(
-                result, leaf_result,
-                "Different tags must produce different hashes"
-            );
-        }
+        let got = tagged_hash(tag, &data);
+        assert_eq!(
+            encode_hex(&got),
+            expected,
+            "Vector {}: {} — hash mismatch",
+            i + 1,
+            description
+        );
     }
 }
+
+// ── address derivation vectors ────────────────────────────────────────────────
 
 #[test]
 fn test_address_derivation_vectors() {
     let json_str = fs::read_to_string("tests/vectors/address_derivation.json")
-        .expect("address_derivation.json should exist");
+        .expect("address_derivation.json");
     let json: Value = serde_json::from_str(&json_str).expect("valid JSON");
 
-    let vectors = json["vectors"].as_array().expect("vectors array");
+    for (i, v) in json["vectors"].as_array().unwrap().iter().enumerate() {
+        let description = v["description"].as_str().unwrap();
+        let expected = v["expected_address"].as_str().unwrap();
 
-    println!("\n=== Address Derivation Test Vectors ===");
-    for (i, vector) in vectors.iter().enumerate() {
-        let description = vector["description"].as_str().unwrap();
-
-        // Compute or extract auth_root
-        let auth_root: [u8; 32] = if let Some(root_hex) = vector["auth_root"].as_str() {
-            if root_hex.starts_with("0x") {
-                let bytes = decode_hex(root_hex);
-                let mut arr = [0u8; 32];
-                arr.copy_from_slice(&bytes);
-                arr
-            } else {
-                // Compute from leaves
-                if let Some(leaf_data) = vector.get("leaf") {
+        let auth_root = match v["auth_root"].as_str().unwrap() {
+            s if s.starts_with("0x") => decode_hex32(s),
+            _ => {
+                // Derive from leaf(s) defined in the vector
+                if let Some(leaf_data) = v.get("leaf") {
                     let version = decode_hex(leaf_data["version"].as_str().unwrap())[0];
                     let script = decode_hex(leaf_data["script"].as_str().unwrap());
                     let leaf = Leaf::new(version, script, description).unwrap();
-                    let tree = MerkleTree::new(vec![leaf]).unwrap();
-                    tree.auth_root()
-                } else if let Some(leaves_data) = vector.get("leaves") {
-                    let leaves: Vec<Leaf> = leaves_data
+                    MerkleTree::new(vec![leaf]).unwrap().auth_root()
+                } else {
+                    let leaves: Vec<Leaf> = v["leaves"]
                         .as_array()
                         .unwrap()
                         .iter()
@@ -96,48 +92,38 @@ fn test_address_derivation_vectors() {
                             Leaf::new(version, script, &format!("leaf_{}", idx)).unwrap()
                         })
                         .collect();
-                    let tree = MerkleTree::new(leaves).unwrap();
-                    tree.auth_root()
-                } else {
-                    panic!("Unknown auth_root format");
+                    MerkleTree::new(leaves).unwrap().auth_root()
                 }
             }
-        } else {
-            panic!("auth_root missing");
         };
 
-        let address = derive_address(&auth_root);
-        let address_hex = encode_hex(&address);
-
-        println!("Vector {}: {} → {}", i + 1, description, address_hex);
-
-        // Verify properties
-        assert_eq!(address.len(), 20, "Address must be 20 bytes");
-
-        // Verify determinism
-        let address2 = derive_address(&auth_root);
+        let got = derive_address(&auth_root);
         assert_eq!(
-            address, address2,
-            "Address derivation must be deterministic"
+            encode_hex(&got),
+            expected,
+            "Vector {}: {} — address mismatch",
+            i + 1,
+            description
         );
     }
 }
 
+// ── merkle proof vectors ──────────────────────────────────────────────────────
+
 #[test]
 fn test_merkle_proof_vectors() {
-    let json_str = fs::read_to_string("tests/vectors/merkle_proofs.json")
-        .expect("merkle_proofs.json should exist");
+    let json_str =
+        fs::read_to_string("tests/vectors/merkle_proofs.json").expect("merkle_proofs.json");
     let json: Value = serde_json::from_str(&json_str).expect("valid JSON");
 
-    let vectors = json["vectors"].as_array().expect("vectors array");
+    for (i, v) in json["vectors"].as_array().unwrap().iter().enumerate() {
+        let description = v["description"].as_str().unwrap();
+        let expected_root = v["tree"]["auth_root"].as_str().unwrap();
+        let expected_depth = v["tree"]["depth"].as_u64().unwrap() as usize;
 
-    println!("\n=== Merkle Proof Test Vectors ===");
-    for (i, vector) in vectors.iter().enumerate() {
-        let description = vector["description"].as_str().unwrap();
-        let leaves_data = vector["leaves"].as_array().unwrap();
-
-        // Build leaves
-        let leaves: Vec<Leaf> = leaves_data
+        let leaves: Vec<Leaf> = v["leaves"]
+            .as_array()
+            .unwrap()
             .iter()
             .enumerate()
             .map(|(idx, l)| {
@@ -147,164 +133,176 @@ fn test_merkle_proof_vectors() {
             })
             .collect();
 
-        // Build tree
-        let tree: MerkleTree = MerkleTree::new(leaves.clone()).unwrap();
-        let auth_root = tree.auth_root();
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
 
-        println!(
-            "Vector {}: {} (depth={}, auth_root={})",
+        assert_eq!(
+            encode_hex(&tree.auth_root()),
+            expected_root,
+            "Vector {}: {} — auth_root mismatch",
             i + 1,
-            description,
+            description
+        );
+        assert_eq!(
             tree.depth,
-            encode_hex(&auth_root)
+            expected_depth,
+            "Vector {}: {} — depth mismatch",
+            i + 1,
+            description
         );
 
-        // Test all proofs
-        let proofs_data = vector["proofs"].as_array().unwrap();
-        for proof_data in proofs_data {
+        for proof_data in v["proofs"].as_array().unwrap() {
             let leaf_index = proof_data["leaf_index"].as_u64().unwrap() as usize;
             let should_verify = proof_data["should_verify"].as_bool().unwrap();
+            let expected_siblings: Vec<String> = proof_data["siblings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|s| s.as_str().unwrap().to_string())
+                .collect();
 
-            // Generate proof
             let proof = tree.proof(leaf_index).unwrap();
+
+            // Assert each sibling matches the vector
             assert_eq!(
                 proof.siblings.len(),
-                tree.depth,
-                "Proof depth must match tree depth"
+                expected_siblings.len(),
+                "Vector {}: leaf {} sibling count mismatch",
+                i + 1,
+                leaf_index
             );
+            for (j, (got, want)) in proof
+                .siblings
+                .iter()
+                .zip(expected_siblings.iter())
+                .enumerate()
+            {
+                assert_eq!(
+                    encode_hex(got),
+                    *want,
+                    "Vector {}: leaf {} sibling[{}] mismatch",
+                    i + 1,
+                    leaf_index,
+                    j
+                );
+            }
 
-            // Verify proof
             let leaf_hash = leaves[leaf_index].hash();
-            let verified = MerkleTree::verify(&leaf_hash, &proof, &auth_root).unwrap();
-            assert_eq!(verified, should_verify, "Proof verification mismatch");
-
-            println!(
-                "  Proof for leaf {}: {} siblings, verified={}",
-                leaf_index,
-                proof.siblings.len(),
-                verified
+            let verified = MerkleTree::verify(&leaf_hash, &proof, &tree.auth_root()).unwrap();
+            assert_eq!(
+                verified,
+                should_verify,
+                "Vector {}: leaf {} proof verify mismatch",
+                i + 1,
+                leaf_index
             );
         }
 
-        // Test that wrong leaf doesn't verify
+        // Wrong leaf must not verify
         if leaves.len() > 1 {
             let proof = tree.proof(0).unwrap();
             let wrong_hash = leaves[1].hash();
-            let verified = MerkleTree::verify(&wrong_hash, &proof, &auth_root).unwrap();
-            assert!(!verified, "Wrong leaf should not verify");
+            assert!(
+                !MerkleTree::verify(&wrong_hash, &proof, &tree.auth_root()).unwrap(),
+                "Vector {}: wrong leaf must not verify",
+                i + 1
+            );
         }
     }
 }
+
+// ── witness signing hash vectors ──────────────────────────────────────────────
 
 #[test]
 fn test_witness_signing_vectors() {
-    let json_str = fs::read_to_string("tests/vectors/witness_signing.json")
-        .expect("witness_signing.json should exist");
+    let json_str =
+        fs::read_to_string("tests/vectors/witness_signing.json").expect("witness_signing.json");
     let json: Value = serde_json::from_str(&json_str).expect("valid JSON");
 
-    let vectors = json["vectors"].as_array().expect("vectors array");
+    for (i, v) in json["vectors"].as_array().unwrap().iter().enumerate() {
+        let description = v["description"].as_str().unwrap();
 
-    println!("\n=== Witness Signing Hash Test Vectors ===");
-    for (i, vector) in vectors.iter().enumerate() {
-        let description = vector["description"].as_str().unwrap();
+        if v.get("transaction_mainnet").is_some() {
+            // Cross-chain replay vector
+            let tx_main = parse_tx(&v["transaction_mainnet"]);
+            let tx_sep = parse_tx(&v["transaction_sepolia"]);
+            let leaf_hash = decode_hex32(v["leaf_hash"].as_str().unwrap());
 
-        // Handle different vector formats - check special cases first
-        if vector.get("transaction_mainnet").is_some() {
-            // Cross-chain replay test
-            let tx_mainnet = parse_tx_message(&vector["transaction_mainnet"]);
-            let tx_sepolia = parse_tx_message(&vector["transaction_sepolia"]);
-            let leaf_hash_hex = vector["leaf_hash"].as_str().unwrap();
-            let leaf_hash_bytes = decode_hex(leaf_hash_hex);
-            let mut leaf_hash = [0u8; 32];
-            leaf_hash.copy_from_slice(&leaf_hash_bytes);
+            let got_main = encode_hex(&tx_main.signing_hash(&leaf_hash));
+            let got_sep = encode_hex(&tx_sep.signing_hash(&leaf_hash));
 
-            let hash_mainnet = tx_mainnet.signing_hash(&leaf_hash);
-            let hash_sepolia = tx_sepolia.signing_hash(&leaf_hash);
-
-            println!(
-                "Vector {}: {} → mainnet={}, sepolia={}",
+            assert_eq!(
+                got_main,
+                v["expected_signing_hash_mainnet"].as_str().unwrap(),
+                "Vector {}: {} — mainnet hash mismatch",
                 i + 1,
-                description,
-                encode_hex(&hash_mainnet),
-                encode_hex(&hash_sepolia)
+                description
             );
-
-            assert_ne!(
-                hash_mainnet, hash_sepolia,
-                "Different chain_id must produce different signing hashes"
-            );
-        } else if vector.get("leaf_hash_1").is_some() {
-            // Different leaf hashes test
-            let tx = parse_tx_message(&vector["transaction"]);
-            let leaf_hash_1_bytes = decode_hex(vector["leaf_hash_1"].as_str().unwrap());
-            let leaf_hash_2_bytes = decode_hex(vector["leaf_hash_2"].as_str().unwrap());
-
-            let mut leaf_hash_1 = [0u8; 32];
-            let mut leaf_hash_2 = [0u8; 32];
-            leaf_hash_1.copy_from_slice(&leaf_hash_1_bytes);
-            leaf_hash_2.copy_from_slice(&leaf_hash_2_bytes);
-
-            let hash_1 = tx.signing_hash(&leaf_hash_1);
-            let hash_2 = tx.signing_hash(&leaf_hash_2);
-
-            println!(
-                "Vector {}: {} → hash1={}, hash2={}",
+            assert_eq!(
+                got_sep,
+                v["expected_signing_hash_sepolia"].as_str().unwrap(),
+                "Vector {}: {} — sepolia hash mismatch",
                 i + 1,
-                description,
-                encode_hex(&hash_1),
-                encode_hex(&hash_2)
+                description
             );
+            assert_ne!(got_main, got_sep, "Cross-chain hashes must differ");
+        } else if v.get("leaf_hash_1").is_some() {
+            // Different leaf hashes vector
+            let tx = parse_tx(&v["transaction"]);
+            let lh1 = decode_hex32(v["leaf_hash_1"].as_str().unwrap());
+            let lh2 = decode_hex32(v["leaf_hash_2"].as_str().unwrap());
 
+            let got1 = encode_hex(&tx.signing_hash(&lh1));
+            let got2 = encode_hex(&tx.signing_hash(&lh2));
+
+            assert_eq!(
+                got1,
+                v["expected_signing_hash_1"].as_str().unwrap(),
+                "Vector {}: {} — hash_1 mismatch",
+                i + 1,
+                description
+            );
+            assert_eq!(
+                got2,
+                v["expected_signing_hash_2"].as_str().unwrap(),
+                "Vector {}: {} — hash_2 mismatch",
+                i + 1,
+                description
+            );
             assert_ne!(
-                hash_1, hash_2,
+                got1, got2,
                 "Different leaf hashes must produce different signing hashes"
             );
-        } else if let Some(tx_data) = vector.get("transaction") {
-            // Standard transaction test
-            let tx = parse_tx_message(tx_data);
-            let leaf_hash_hex = vector["leaf_hash"].as_str().unwrap();
-            let leaf_hash_bytes = decode_hex(leaf_hash_hex);
-            let mut leaf_hash = [0u8; 32];
-            leaf_hash.copy_from_slice(&leaf_hash_bytes);
+        } else {
+            // Standard transaction vector
+            let tx = parse_tx(&v["transaction"]);
+            let leaf_hash = decode_hex32(v["leaf_hash"].as_str().unwrap());
+            let expected = v["expected_signing_hash"].as_str().unwrap();
 
-            let signing_hash = tx.signing_hash(&leaf_hash);
-            let signing_hash_hex = encode_hex(&signing_hash);
-
-            println!("Vector {}: {} → {}", i + 1, description, signing_hash_hex);
-
-            // Verify determinism
-            let signing_hash2 = tx.signing_hash(&leaf_hash);
+            let got = encode_hex(&tx.signing_hash(&leaf_hash));
             assert_eq!(
-                signing_hash, signing_hash2,
-                "Signing hash must be deterministic"
+                got,
+                expected,
+                "Vector {}: {} — signing hash mismatch",
+                i + 1,
+                description
             );
         }
     }
 }
 
-/// Helper to parse TxMessage from JSON
-fn parse_tx_message(json: &Value) -> TxMessage {
-    let from_bytes = decode_hex(json["from"].as_str().unwrap());
-    let to_bytes = decode_hex(json["to"].as_str().unwrap());
+// ── helpers ───────────────────────────────────────────────────────────────────
 
-    let mut from = [0u8; 20];
-    let mut to = [0u8; 20];
-    from.copy_from_slice(&from_bytes);
-    to.copy_from_slice(&to_bytes);
-
+fn parse_tx(j: &Value) -> TxMessage {
     TxMessage {
-        chain_id: json["chain_id"].as_u64().unwrap(),
-        nonce: json["nonce"].as_u64().unwrap(),
-        from,
-        to,
-        value: json["value"].as_str().unwrap().parse().unwrap(),
-        data: json["data"]
-            .as_str()
-            .map(|s| hex::decode(s.strip_prefix("0x").unwrap_or(s)).unwrap_or_default())
-            .unwrap_or_default(),
-        gas_limit: json["gas_limit"].as_u64().unwrap(),
-        max_fee_per_gas: json["max_fee_per_gas"].as_str().unwrap().parse().unwrap(),
-        max_priority_fee_per_gas: json["max_priority_fee_per_gas"]
+        chain_id: j["chain_id"].as_u64().unwrap(),
+        nonce: j["nonce"].as_u64().unwrap(),
+        from: decode_hex20(j["from"].as_str().unwrap()),
+        to: decode_hex20(j["to"].as_str().unwrap()),
+        value: j["value"].as_str().unwrap().parse().unwrap(),
+        data: j["data"].as_str().map(decode_hex).unwrap_or_default(),
+        gas_limit: j["gas_limit"].as_u64().unwrap(),
+        max_fee_per_gas: j["max_fee_per_gas"].as_str().unwrap().parse().unwrap(),
+        max_priority_fee_per_gas: j["max_priority_fee_per_gas"]
             .as_str()
             .unwrap()
             .parse()
