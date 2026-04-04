@@ -1,6 +1,6 @@
 {
     "description": "Merkle tree proof generation and verification test vectors",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "vectors": [
         {
             "description": "Single leaf tree",
@@ -12,7 +12,7 @@
             ],
             "tree": {
                 "depth": 0,
-                "auth_root": "computed_at_runtime"
+                "auth_root": "0x283c6479f7f8778060f60e63b173f2677785ef6a10fb839700fe54e838e96755"
             },
             "proofs": [
                 {
@@ -36,20 +36,20 @@
             ],
             "tree": {
                 "depth": 1,
-                "auth_root": "computed_at_runtime"
+                "auth_root": "0xeb5860249dae5be4008cfcf7466303d271a13221d7064d9545cc5a0e64bd671b"
             },
             "proofs": [
                 {
                     "leaf_index": 0,
                     "siblings": [
-                        "computed_at_runtime"
+                        "0x68ae3348b2b279a124c0395080865d55df8154eca57aa5deb6b19f4896200b36"
                     ],
                     "should_verify": true
                 },
                 {
                     "leaf_index": 1,
                     "siblings": [
-                        "computed_at_runtime"
+                        "0x69d889d1bcdb0800a3682279d5cd1e59e4a32972eb5a1e787b38d3c22b45a640"
                     ],
                     "should_verify": true
                 }
@@ -73,31 +73,31 @@
             ],
             "tree": {
                 "depth": 2,
-                "auth_root": "computed_at_runtime",
+                "auth_root": "0x8e82974e0f537e1598d28c3168e8a069bd4be85e75996c871a543771e190484b",
                 "note": "Tree is padded to 4 leaves by duplicating last leaf"
             },
             "proofs": [
                 {
                     "leaf_index": 0,
                     "siblings": [
-                        "computed_at_runtime",
-                        "computed_at_runtime"
+                        "0x68ae3348b2b279a124c0395080865d55df8154eca57aa5deb6b19f4896200b36",
+                        "0xed3211d5385282fc155706dee0a68e4ab352f8f24f233f07149448a74d4edb8e"
                     ],
                     "should_verify": true
                 },
                 {
                     "leaf_index": 1,
                     "siblings": [
-                        "computed_at_runtime",
-                        "computed_at_runtime"
+                        "0x69d889d1bcdb0800a3682279d5cd1e59e4a32972eb5a1e787b38d3c22b45a640",
+                        "0xed3211d5385282fc155706dee0a68e4ab352f8f24f233f07149448a74d4edb8e"
                     ],
                     "should_verify": true
                 },
                 {
                     "leaf_index": 2,
                     "siblings": [
-                        "computed_at_runtime",
-                        "computed_at_runtime"
+                        "0xa5dbc35ed065061b9daf1a5d0f557c4cd5637e21809975c5aec4d70bb0eb1731",
+                        "0xeb5860249dae5be4008cfcf7466303d271a13221d7064d9545cc5a0e64bd671b"
                     ],
                     "should_verify": true
                 }
@@ -125,38 +125,38 @@
             ],
             "tree": {
                 "depth": 2,
-                "auth_root": "computed_at_runtime"
+                "auth_root": "0x71e66974c0bc29bf3060b054e015c50cfd6f501c25ede00a4468f6133be67f6d"
             },
             "proofs": [
                 {
                     "leaf_index": 0,
                     "siblings": [
-                        "computed_at_runtime",
-                        "computed_at_runtime"
+                        "0xdfa6f34771dfef352d439350b2ce8a0abe897fb7730ec2d0ff659771e50c9029",
+                        "0x307dbe22b26789dd9b06bfb3ad1fefcdf12c9db5cb7b560864d993577b76ebf2"
                     ],
                     "should_verify": true
                 },
                 {
                     "leaf_index": 1,
                     "siblings": [
-                        "computed_at_runtime",
-                        "computed_at_runtime"
+                        "0xeb6f54f79bb9f5b754b86a268fc1ddcf5d8cec3dbd1a99c7c91901934686ae83",
+                        "0x307dbe22b26789dd9b06bfb3ad1fefcdf12c9db5cb7b560864d993577b76ebf2"
                     ],
                     "should_verify": true
                 },
                 {
                     "leaf_index": 2,
                     "siblings": [
-                        "computed_at_runtime",
-                        "computed_at_runtime"
+                        "0x239c74f718a74a09b156d7cbd9e26a509e49532f2d58723d0dd8f33d89b31189",
+                        "0xb18f3e3237cf8a323beb5186c731365edc78c289a86e713a91742aa523dad1a2"
                     ],
                     "should_verify": true
                 },
                 {
                     "leaf_index": 3,
                     "siblings": [
-                        "computed_at_runtime",
-                        "computed_at_runtime"
+                        "0x310d11f83b02d606b0d1ba380c504a24035fc25d69cf14762f377199709a1262",
+                        "0xb18f3e3237cf8a323beb5186c731365edc78c289a86e713a91742aa523dad1a2"
                     ],
                     "should_verify": true
                 }
@@ -165,59 +165,35 @@
         {
             "description": "Eight leaf tree",
             "leaves": [
-                {
-                    "version": "0x01",
-                    "script": "0x6c656166305f7363726970"
-                },
-                {
-                    "version": "0x01",
-                    "script": "0x6c656166315f7363726970"
-                },
-                {
-                    "version": "0x01",
-                    "script": "0x6c656166325f7363726970"
-                },
-                {
-                    "version": "0x01",
-                    "script": "0x6c656166335f7363726970"
-                },
-                {
-                    "version": "0x01",
-                    "script": "0x6c656166345f7363726970"
-                },
-                {
-                    "version": "0x01",
-                    "script": "0x6c656166355f7363726970"
-                },
-                {
-                    "version": "0x01",
-                    "script": "0x6c656166365f7363726970"
-                },
-                {
-                    "version": "0x01",
-                    "script": "0x6c656166375f7363726970"
-                }
+                {"version": "0x01", "script": "0x6c656166305f7363726970"},
+                {"version": "0x01", "script": "0x6c656166315f7363726970"},
+                {"version": "0x01", "script": "0x6c656166325f7363726970"},
+                {"version": "0x01", "script": "0x6c656166335f7363726970"},
+                {"version": "0x01", "script": "0x6c656166345f7363726970"},
+                {"version": "0x01", "script": "0x6c656166355f7363726970"},
+                {"version": "0x01", "script": "0x6c656166365f7363726970"},
+                {"version": "0x01", "script": "0x6c656166375f7363726970"}
             ],
             "tree": {
                 "depth": 3,
-                "auth_root": "computed_at_runtime"
+                "auth_root": "0x25ca83f814905eaa2763adf038965572c2a5eef6d53696cee279efc3b88a4096"
             },
             "proofs": [
                 {
                     "leaf_index": 0,
                     "siblings": [
-                        "computed_at_runtime",
-                        "computed_at_runtime",
-                        "computed_at_runtime"
+                        "0x68ae3348b2b279a124c0395080865d55df8154eca57aa5deb6b19f4896200b36",
+                        "0xc5c592166db3a0b15f4416d7e12434e655f1d5a4f51cd4f139a2a6b28d007645",
+                        "0x5c2bdab40da4b131398dfa4ff996c88e7cf33ffaa50c56d4e3e9c601cd7f5e94"
                     ],
                     "should_verify": true
                 },
                 {
                     "leaf_index": 7,
                     "siblings": [
-                        "computed_at_runtime",
-                        "computed_at_runtime",
-                        "computed_at_runtime"
+                        "0x769dedfc4dfe422002e0d4a95839f3e86f5a44c5e90be56b6206d6b4faa0a707",
+                        "0x5c52a39880a97a3e8c6da65b4267bb883034fed038b203dad278da2a76ac127c",
+                        "0x7cf71f8be3ce09e888c50fb8907175075e1db12d97421a3c9a1c87a87bd066ab"
                     ],
                     "should_verify": true
                 }
