@@ -1,18 +1,19 @@
-// address.rs
-// HCA address derivation
-//
-// Formula:
-//   address = keccak256(tagged_hash("HCAAddr", auth_root))[12:]
-//
-// The public key is completely absent from this derivation chain.
-// A quantum computer observing the address has no algebraic
-// structure to run Shor's algorithm against.
+//! HCA address derivation.
+//!
+//! Formula:
+//! ```text
+//! address = keccak256(tagged_hash("HCAAddr", auth_root))[12..]
+//! ```
+//!
+//! The public key is completely absent from this derivation chain.
+//! A quantum computer observing the address has no algebraic
+//! structure to run Shor's algorithm against.
 
 use crate::hash::{tagged_hash, tags};
 
 /// Derive a 20-byte HCA address from an auth_root
 ///
-/// address = keccak256(tagged_hash("HCAAddr", auth_root))[12:]
+/// address = keccak256(tagged_hash("HCAAddr", auth_root))`[12..]`
 ///
 /// The last 20 bytes of the hash are taken — matching Ethereum's
 /// existing 20-byte address format for full EVM compatibility.
@@ -71,11 +72,11 @@ mod tests {
 
     #[test]
     fn test_address_not_equal_to_auth_root_truncated() {
-        // address is NOT just auth_root[12:]
-        // it is keccak256(tagged_hash("HCAAddr", auth_root))[12:]
+        // address is NOT just auth_root`[12..]`
+        // it is keccak256(tagged_hash("HCAAddr", auth_root))`[12..]`
         let auth_root = [0xABu8; 32];
         let address = derive_address(&auth_root);
-        // If address were just auth_root[12:], all bytes would be 0xAB
+        // If address were just auth_root`[12..]`, all bytes would be 0xAB
         let all_same = address.iter().all(|&b| b == 0xAB);
         assert!(
             !all_same,

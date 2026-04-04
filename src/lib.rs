@@ -1,22 +1,48 @@
-// lib.rs
-//
-// hca-rs — Hash-Committed Account cryptographic core
-//
-// Exposes modules:
-//   hash      — keccak256, tagged_hash, domain separation tags
-//   address   — derive_address, address formatting
-//   merkle    — Leaf, MerkleTree, MerkleProof
-//   witness   — TxMessage, HCAWitness
-//   rlp       — RLP encoding for HCA transactions
-//   error     — HcaError, HcaResult<T>
-//   constants — Protocol constants
-//   wasm      — WASM bindings (feature = "wasm")
-//
-// no_std support: compile without the `std` feature for embedded/WASM
-// environments.  All crypto and Merkle operations work with alloc only.
-// serde_json and hex formatting require the `std` feature.
+//! # hca-rs — Hash-Committed Account cryptographic primitives
+//!
+//! Reference implementation of [EIP-8215](https://github.com/eth-hca/hca-rs)
+//! (Hash-Committed Account), a proposed Ethereum account type that eliminates
+//! the quantum long-exposure attack surface by removing the public key from
+//! address derivation.
+//!
+//! ## Address derivation
+//!
+//! ```text
+//! address = keccak256(tagged_hash("HCAAddr", auth_root))[12..]
+//! ```
+//!
+//! The `auth_root` is the root of a Merkle tree of spending conditions
+//! (EVM bytecode scripts). No public key enters the derivation chain.
+//!
+//! ## Quick start
+//!
+//! ```rust
+//! use hca_rs::{TreeBuilder, TxBuilder, MerkleTree, derive_address};
+//!
+//! // 1. Define spending conditions
+//! let tree = TreeBuilder::new()
+//!     .add_leaf(0x01, b"primary_script".to_vec(), "Primary key")
+//!     .add_leaf(0x01, b"recovery_script".to_vec(), "Recovery key")
+//!     .build()
+//!     .unwrap();
+//!
+//! // 2. Derive HCA address from the Merkle root
+//! let address = derive_address(&tree.auth_root());
+//! assert_eq!(address.len(), 20);
+//! ```
+//!
+//! ## Feature flags
+//!
+//! | Feature | Default | Description |
+//! |---------|---------|-------------|
+//! | `std`   | ✓       | Links against std; enables `serde_json` and hex formatting helpers |
+//! | `serde` | ✓       | Derives `Serialize`/`Deserialize` on `Leaf` and `MerkleProof` |
+//! | `wasm`  |         | Compiles WASM bindings via `wasm-bindgen` |
+//!
+//! Compile with `default-features = false` for `no_std + alloc` environments.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(missing_docs)]
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;

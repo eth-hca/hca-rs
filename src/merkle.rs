@@ -83,9 +83,11 @@ pub struct MerkleProof {
 /// HCA Merkle tree
 #[derive(Clone, Debug)]
 pub struct MerkleTree {
+    /// The original spending-condition leaves (in insertion order)
     pub leaves: Vec<Leaf>,
     /// All nodes — level 0 (leaves) first, root last
     nodes: Vec<Vec<[u8; 32]>>,
+    /// Tree depth — 0 for a single-leaf tree, log₂(padded_size) otherwise
     pub depth: usize,
 }
 
