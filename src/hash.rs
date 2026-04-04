@@ -87,7 +87,7 @@ fn sha256(data: &[u8]) -> [u8; 32] {
 
 /// Domain separation tags for different HCA operations
 pub mod tags {
-    /// Address derivation: address = keccak256(tagged_hash("HCAAddr", auth_root))[12:]
+    /// Address derivation: address = keccak256(tagged_hash("HCAAddr", auth_root))`[12..]`
     pub const ADDR: &str = "HCAAddr";
 
     /// Leaf hash: leaf_hash = tagged_hash("HCALeaf", version || script)
