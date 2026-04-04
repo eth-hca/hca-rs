@@ -12,6 +12,16 @@ use hca_rs::{
 };
 use proptest::prelude::*;
 
+/// Deduplicate leaves by hash — prevents DuplicateLeaf errors in property tests
+/// where proptest may generate two leaves with identical scripts.
+fn dedup_leaves(leaves: Vec<Leaf>) -> Vec<Leaf> {
+    let mut seen = std::collections::HashSet::new();
+    leaves
+        .into_iter()
+        .filter(|l| seen.insert(l.hash()))
+        .collect()
+}
+
 // ============================================================================
 // Hash Function Property Tests (HIGHEST PRIORITY)
 // ============================================================================
@@ -127,6 +137,8 @@ proptest! {
     fn prop_merkle_valid_proof_verifies(
         leaves in prop::collection::vec(arb_leaf(), 1..64)
     ) {
+        let leaves = dedup_leaves(leaves);
+        prop_assume!(!leaves.is_empty());
         let tree = MerkleTree::new(leaves.clone())?;
         let root = tree.auth_root();
 
@@ -144,6 +156,8 @@ proptest! {
     fn prop_merkle_root_deterministic(
         leaves in prop::collection::vec(arb_leaf(), 1..32)
     ) {
+        let leaves = dedup_leaves(leaves);
+        prop_assume!(!leaves.is_empty());
         let tree1 = MerkleTree::new(leaves.clone())?;
         let tree2 = MerkleTree::new(leaves)?;
         prop_assert_eq!(tree1.auth_root(), tree2.auth_root(),
@@ -153,8 +167,10 @@ proptest! {
     /// Property: Different leaf orders produce different roots
     #[test]
     fn prop_merkle_leaf_order_matters(
-        mut leaves in prop::collection::vec(arb_leaf(), 2..16)
+        leaves in prop::collection::vec(arb_leaf(), 2..16)
     ) {
+        let mut leaves = dedup_leaves(leaves);
+        prop_assume!(leaves.len() >= 2);
         let tree1 = MerkleTree::new(leaves.clone())?;
         let root1 = tree1.auth_root();
 
@@ -173,6 +189,9 @@ proptest! {
         leaves2 in prop::collection::vec(arb_leaf(), 2..32),
         index in 0usize..10
     ) {
+        let leaves1 = dedup_leaves(leaves1);
+        let leaves2 = dedup_leaves(leaves2);
+        prop_assume!(!leaves1.is_empty() && !leaves2.is_empty());
         let tree1 = MerkleTree::new(leaves1.clone())?;
         let tree2 = MerkleTree::new(leaves2.clone())?;
 
@@ -194,6 +213,8 @@ proptest! {
     fn prop_merkle_root_length(
         leaves in prop::collection::vec(arb_leaf(), 1..64)
     ) {
+        let leaves = dedup_leaves(leaves);
+        prop_assume!(!leaves.is_empty());
         let tree = MerkleTree::new(leaves)?;
         let root = tree.auth_root();
         prop_assert_eq!(root.len(), 32, "Root must be 32 bytes");
