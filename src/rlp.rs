@@ -334,6 +334,7 @@ pub fn decode_list(input: &[u8]) -> HcaResult<(Vec<u8>, usize)> {
 ///
 /// - `RlpDecodeError` if bytes are malformed or truncated
 /// - `RlpDecodeError` if the type byte is not `HCA_TX_TYPE`
+#[allow(unused_assignments)]
 pub fn decode_hca_tx(raw: &[u8]) -> HcaResult<(TxMessage, HCAWitness)> {
     use crate::merkle::{Leaf, MerkleProof};
 
@@ -683,7 +684,7 @@ mod tests {
     // ── Round-trip tests ──────────────────────────────────────────────────────
 
     fn make_test_tx_and_witness() -> (TxMessage, HCAWitness) {
-        use crate::merkle::{Leaf, MerkleProof, MerkleTree};
+        use crate::merkle::{Leaf, MerkleTree};
 
         let leaves = vec![
             Leaf::new(0x01, b"spend_script".to_vec(), "primary").unwrap(),
@@ -729,8 +730,14 @@ mod tests {
 
         assert_eq!(witness2.leaf_version, witness.leaf_version);
         assert_eq!(witness2.leaf_script, witness.leaf_script);
-        assert_eq!(witness2.merkle_proof.leaf_index, witness.merkle_proof.leaf_index);
-        assert_eq!(witness2.merkle_proof.siblings, witness.merkle_proof.siblings);
+        assert_eq!(
+            witness2.merkle_proof.leaf_index,
+            witness.merkle_proof.leaf_index
+        );
+        assert_eq!(
+            witness2.merkle_proof.siblings,
+            witness.merkle_proof.siblings
+        );
         assert_eq!(witness2.witness_data, witness.witness_data);
     }
 
