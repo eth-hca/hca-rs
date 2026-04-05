@@ -28,11 +28,30 @@
 //! ```
 
 #[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
+
+#[cfg(feature = "std")]
+use std::string::String;
 
 use crate::error::{HcaError, HcaResult};
 use crate::merkle::{Leaf, MerkleTree};
 use crate::witness::TxMessage;
+
+/// Holds a leaf description as either a borrowed static string or an owned String.
+/// This lets TreeBuilder preserve insertion order across add_leaf / add_leaf_owned calls.
+enum Desc {
+    Static(&'static str),
+    Owned(String),
+}
+
+impl Desc {
+    fn as_str(&self) -> &str {
+        match self {
+            Desc::Static(s) => s,
+            Desc::Owned(s) => s.as_str(),
+        }
+    }
+}
 
 // ── TreeBuilder ───────────────────────────────────────────────────────────────
 
@@ -54,17 +73,28 @@ use crate::witness::TxMessage;
 ///
 /// assert_eq!(tree.leaves.len(), 2);
 /// ```
-#[derive(Debug, Default)]
+/// Ergonomic builder for [`MerkleTree`].
+///
+/// Collects leaves via [`add_leaf`](TreeBuilder::add_leaf) and validates
+/// them all at [`build`](TreeBuilder::build) time.
+///
+/// # Example
+///
+/// ```
+/// use hca_rs::builder::TreeBuilder;
+///
+/// let tree = TreeBuilder::new()
+///     .add_leaf(0x01, b"script_a".to_vec(), "Key A")
+///     .add_leaf(0x01, b"script_b".to_vec(), "Key B")
+///     .build()
+///     .unwrap();
+///
+/// assert_eq!(tree.leaves.len(), 2);
+/// ```
+#[derive(Default)]
 pub struct TreeBuilder {
-    pending: Vec<(u8, Vec<u8>, &'static str)>,
-    pending_owned: Vec<(u8, Vec<u8>, String)>,
+    pending: Vec<(u8, Vec<u8>, Desc)>,
 }
-
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-
-#[cfg(feature = "std")]
-use std::string::String;
 
 impl TreeBuilder {
     /// Create an empty builder.
@@ -77,13 +107,15 @@ impl TreeBuilder {
     /// The leaf is validated (version, script size, banned opcodes) at
     /// [`build`](TreeBuilder::build) time, not here.
     pub fn add_leaf(mut self, version: u8, script: Vec<u8>, description: &'static str) -> Self {
-        self.pending.push((version, script, description));
+        self.pending
+            .push((version, script, Desc::Static(description)));
         self
     }
 
     /// Add a leaf with an owned description string.
     pub fn add_leaf_owned(mut self, version: u8, script: Vec<u8>, description: String) -> Self {
-        self.pending_owned.push((version, script, description));
+        self.pending
+            .push((version, script, Desc::Owned(description)));
         self
     }
 
@@ -95,17 +127,14 @@ impl TreeBuilder {
     /// - Any leaf contains a banned EVM opcode
     /// - Any two leaves are identical (same hash)
     pub fn build(self) -> HcaResult<MerkleTree> {
-        if self.pending.is_empty() && self.pending_owned.is_empty() {
+        if self.pending.is_empty() {
             return Err(HcaError::EmptyTree);
         }
 
-        let mut leaves = Vec::with_capacity(self.pending.len() + self.pending_owned.len());
+        let mut leaves = Vec::with_capacity(self.pending.len());
 
         for (version, script, desc) in self.pending {
-            leaves.push(Leaf::new(version, script, desc)?);
-        }
-        for (version, script, desc) in self.pending_owned {
-            leaves.push(Leaf::new(version, script, &desc)?);
+            leaves.push(Leaf::new(version, script, desc.as_str())?);
         }
 
         MerkleTree::new(leaves)
@@ -305,6 +334,32 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(tree.leaves.len(), 1);
+    }
+
+    #[test]
+    fn test_tree_builder_insertion_order_preserved() {
+        // Mixing add_leaf and add_leaf_owned must preserve insertion order.
+        // Before the fix, static leaves were processed before owned leaves,
+        // so A, B(owned), C would produce [A, C, B] — a different auth_root.
+        let mixed = TreeBuilder::new()
+            .add_leaf(0x01, b"aaa".to_vec(), "A")
+            .add_leaf_owned(0x01, b"bbb".to_vec(), "B".to_string())
+            .add_leaf(0x01, b"ccc".to_vec(), "C")
+            .build()
+            .unwrap();
+
+        let ordered = TreeBuilder::new()
+            .add_leaf(0x01, b"aaa".to_vec(), "A")
+            .add_leaf(0x01, b"bbb".to_vec(), "B")
+            .add_leaf(0x01, b"ccc".to_vec(), "C")
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            mixed.auth_root(),
+            ordered.auth_root(),
+            "insertion order must be preserved when mixing add_leaf and add_leaf_owned"
+        );
     }
 
     #[test]
