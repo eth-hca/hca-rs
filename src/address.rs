@@ -9,16 +9,20 @@
 //! A quantum computer observing the address has no algebraic
 //! structure to run Shor's algorithm against.
 
-use crate::hash::{tagged_hash, tags};
+use crate::hash::{keccak256, tagged_hash, tags};
 
-/// Derive a 20-byte HCA address from an auth_root
+/// Derive a 20-byte HCA address from an auth_root.
 ///
-/// address = keccak256(tagged_hash("HCAAddr", auth_root))`[12..]`
+/// ```text
+/// address = keccak256(tagged_hash("HCAAddr", auth_root))[12..]
+/// ```
 ///
-/// The last 20 bytes of the hash are taken — matching Ethereum's
-/// existing 20-byte address format for full EVM compatibility.
+/// The outer `keccak256` wraps the tagged hash, matching the structure of
+/// Ethereum's EOA derivation (`keccak256(pubkey)[12:]`) while the
+/// `tagged_hash` domain separator ensures no cross-type collisions.
 pub fn derive_address(auth_root: &[u8; 32]) -> [u8; 20] {
-    let hash = tagged_hash(tags::ADDR, auth_root);
+    let inner = tagged_hash(tags::ADDR, auth_root);
+    let hash = keccak256(&inner);
     let mut address = [0u8; 20];
     address.copy_from_slice(&hash[12..]);
     address
