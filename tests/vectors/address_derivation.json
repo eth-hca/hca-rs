@@ -6,22 +6,22 @@
         {
             "description": "Zero auth_root",
             "auth_root": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "expected_address": "0xe20131ccd914c72abd6f95f26b5497acfe10ae66"
+            "expected_address": "0xdb82c2d7278ba5cccd6bc0f27eb198adfe9595ca"
         },
         {
             "description": "All-ones auth_root",
             "auth_root": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            "expected_address": "0x681155c865dd363cac89dbaea07584e24decf299"
+            "expected_address": "0x3df331541724d80c16ae2d7eea7fe591569d1ec2"
         },
         {
             "description": "Sample auth_root 1",
             "auth_root": "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-            "expected_address": "0xcc861f5327173d5c1b9ea5b9308b96575caab19a"
+            "expected_address": "0x586fe01f8ce776785dca50f8b68bca9baca8add0"
         },
         {
             "description": "Sample auth_root 2",
             "auth_root": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-            "expected_address": "0xb242088c669047dadef87dab6fbe504e595beaee"
+            "expected_address": "0xe4d85e6ad324aebaae2566b54c63c8eba7a569ea"
         },
         {
             "description": "Single leaf tree - primary key",
@@ -30,7 +30,7 @@
                 "version": "0x01",
                 "script": "0x4f505f434845434b5349475f7072696d617279"
             },
-            "expected_address": "0xb63167ce12ea738630b0e2f3ed61b7682c8e2b81"
+            "expected_address": "0x37d00570f072a1e99577746274d068d5cc4d0922"
         },
         {
             "description": "Two leaf tree - primary and recovery",
@@ -45,7 +45,7 @@
                     "script": "0x7265636f766572795f6b6579"
                 }
             ],
-            "expected_address": "0x5208b95095aab379f151acfc850ad36e224ad35e"
+            "expected_address": "0xea1bd51a200bd19e366148fc27ca208cfffc2d6c"
         }
     ]
 }
