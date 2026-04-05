@@ -6,19 +6,21 @@
 //!
 //! ## Banned opcodes (EIP-8215 §Leaf execution context)
 //!
-//! | Opcode       | Byte | Reason                                  |
-//! |--------------|------|-----------------------------------------|
-//! | CREATE       | 0xF0 | No contract deployment during verification |
-//! | CREATE2      | 0xF5 | No contract deployment during verification |
-//! | SSTORE       | 0x55 | No state mutation                       |
-//! | SELFDESTRUCT | 0xFF | No account destruction                  |
-//! | DELEGATECALL | 0xF4 | No arbitrary code execution             |
-//! | CALL         | 0xF1 | No external calls                       |
-//! | CALLCODE     | 0xF2 | No external calls                       |
-//! | STATICCALL   | 0xFA | No external calls                       |
-//! | SLOAD        | 0x54 | No state reads                          |
-//! | LOG0         | 0xA0 | No event emission                       |
-//! | LOG1–LOG4    |0xA1–0xA4| No event emission                   |
+//! | Opcode       | Byte    | Reason                                     |
+//! |:-------------|:--------|:-------------------------------------------|
+//! | CREATE       | 0xF0    | No contract deployment during verification |
+//! | CREATE2      | 0xF5    | No contract deployment during verification |
+//! | SSTORE       | 0x55    | No state mutation                          |
+//! | SELFDESTRUCT | 0xFF    | No account destruction                     |
+//! | DELEGATECALL | 0xF4    | No arbitrary code execution                |
+//! | CALL         | 0xF1    | No value transfers (all CALL banned statically; value is dynamic) |
+//! | LOG0–LOG4    | 0xA0–0xA4 | No event emission                        |
+//!
+//! ## Permitted opcodes (EIP-8215 §252)
+//!
+//! `SLOAD`, `BALANCE`, `EXTCODESIZE`, `EXTCODECOPY`, `STATICCALL`, and all
+//! arithmetic/logic opcodes are **permitted**. Leaf scripts may read chain
+//! state for time-lock and oracle-based spending conditions.
 //!
 //! ## PUSH data skipping
 //!
@@ -33,6 +35,10 @@ use crate::error::{HcaError, HcaResult};
 use crate::evm::gas::GasCounter;
 
 /// Banned EVM opcodes per EIP-8215 leaf execution context restrictions.
+///
+/// SLOAD (0x54), STATICCALL (0xFA), and CALLCODE (0xF2) are NOT banned —
+/// the spec explicitly permits SLOAD and STATICCALL for time-lock and
+/// oracle-based spending conditions.
 const BANNED: &[(u8, &str)] = &[
     (0xF0, "CREATE"),
     (0xF5, "CREATE2"),
@@ -40,9 +46,6 @@ const BANNED: &[(u8, &str)] = &[
     (0xFF, "SELFDESTRUCT"),
     (0xF4, "DELEGATECALL"),
     (0xF1, "CALL"),
-    (0xF2, "CALLCODE"),
-    (0xFA, "STATICCALL"),
-    (0x54, "SLOAD"),
     (0xA0, "LOG0"),
     (0xA1, "LOG1"),
     (0xA2, "LOG2"),
@@ -56,7 +59,10 @@ fn opcode_gas_cost(op: u8) -> u64 {
         // Zero-cost terminals
         0x00 | 0xF3 | 0xFD => 0,
         // Cheap arithmetic / comparison / bitwise (3 gas)
-        0x01..=0x0B | 0x10..=0x1D => 3,
+        // EXP (0x0A) has a higher base cost but is handled separately below
+        0x01..=0x09 | 0x0B | 0x10..=0x1D => 3,
+        // EXP — base cost 10 gas (Berlin schedule; dynamic per-byte cost not counted)
+        0x0A => 10,
         // SHA3 — base cost (30 gas; data cost is dynamic and not counted here)
         0x20 => 30,
         // Stack / memory (2–3 gas)
@@ -214,5 +220,38 @@ mod tests {
     #[test]
     fn test_jumpdest_costs_one_gas() {
         assert_eq!(validate_leaf_script(&[0x5B]).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_sload_is_permitted() {
+        // SLOAD (0x54) is explicitly permitted by EIP-8215 §252
+        assert!(
+            validate_leaf_script(&[0x54]).is_ok(),
+            "SLOAD must be permitted — spec allows reading chain state"
+        );
+    }
+
+    #[test]
+    fn test_staticcall_is_permitted() {
+        // STATICCALL (0xFA) is explicitly permitted by EIP-8215 §252
+        assert!(
+            validate_leaf_script(&[0xFA]).is_ok(),
+            "STATICCALL must be permitted — spec allows oracle-based conditions"
+        );
+    }
+
+    #[test]
+    fn test_callcode_is_permitted() {
+        // CALLCODE (0xF2) is not listed in the EIP-8215 ban table
+        assert!(
+            validate_leaf_script(&[0xF2]).is_ok(),
+            "CALLCODE is not in the spec ban list"
+        );
+    }
+
+    #[test]
+    fn test_exp_costs_ten_gas() {
+        // EXP (0x0A) base cost is 10 per Berlin schedule
+        assert_eq!(validate_leaf_script(&[0x0A]).unwrap(), 10);
     }
 }
