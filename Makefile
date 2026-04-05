@@ -5,8 +5,9 @@ CARGO_NIGHTLY := $(shell which cargo 2>/dev/null || echo $(HOME)/.cargo/bin/carg
         test test-unit test-property test-vector test-doc test-all test-no-default test-one \
         bench bench-hash bench-merkle bench-address bench-flow \
         fuzz fuzz-merkle fuzz-proof fuzz-witness fuzz-rlp \
-        example-create example-spend example-verify \
+        example-create example-spend example-verify examples \
         cli cli-help cli-demo \
+        cli-create cli-derive cli-proof cli-verify cli-signing \
         lint fmt fmt-check check clean
 
 # ─────────────────────────────────────────────
@@ -96,6 +97,8 @@ fuzz-rlp:
 # Examples
 # ─────────────────────────────────────────────
 
+examples: example-create example-spend example-verify
+
 example-create:
 	$(CARGO) run --example create_account
 
@@ -155,6 +158,31 @@ cli-demo:
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "  ✓ demo complete"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Individual CLI commands — override any field with LEAVES=, AUTH_ROOT=, etc.
+LEAVES ?= [{"version":"0x01","script":"0x6001","description":"Primary ECDSA"},{"version":"0x01","script":"0x6002","description":"Recovery key"},{"version":"0x01","script":"0x6003","description":"Timelock 30d"}]
+AUTH_ROOT ?= 0x4a867fd41174aae765cebc85902936aad95a5cd4a71c4bb9d8b01c5f1c8a1807
+INDEX ?= 0
+
+# make cli-create
+cli-create:
+	hca create-account --leaves '$(LEAVES)'
+
+# make cli-derive AUTH_ROOT=0x...
+cli-derive:
+	hca derive-address --auth-root $(AUTH_ROOT)
+
+# make cli-proof  or  make cli-proof INDEX=1
+cli-proof:
+	hca generate-proof --leaves '$(LEAVES)' --index $(INDEX)
+
+# make cli-verify LEAF_HASH=0x... PROOF='{"leaf_index":0,"siblings":[...]}' AUTH_ROOT=0x...
+cli-verify:
+	hca verify-proof --leaf-hash $(LEAF_HASH) --proof '$(PROOF)' --auth-root $(AUTH_ROOT)
+
+# make cli-signing LEAF_HASH=0x... TX='{"chain_id":1,...}'
+cli-signing:
+	hca signing-hash --leaf-hash $(LEAF_HASH) --tx '$(TX)'
 
 # ─────────────────────────────────────────────
 # Lint & Format
