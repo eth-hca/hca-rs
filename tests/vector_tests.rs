@@ -6,8 +6,9 @@
 
 use hca_rs::address::{address_to_hex, derive_address};
 use hca_rs::hash::tagged_hash;
-use hca_rs::merkle::{Leaf, MerkleTree};
-use hca_rs::witness::TxMessage;
+use hca_rs::merkle::{Leaf, MerkleProof, MerkleTree};
+use hca_rs::rlp::{encode_address, encode_bytes, encode_hca_tx, encode_list, encode_uint};
+use hca_rs::witness::{HCAWitness, TxMessage};
 use serde_json::Value;
 use std::fs;
 
@@ -379,6 +380,105 @@ fn test_hca_construction_vector() {
         expected_signing_hash,
         "signing_hash mismatch"
     );
+}
+
+#[test]
+fn test_rlp_encoding_vectors() {
+    let json_str = fs::read_to_string("tests/vectors/rlp_encoding.json")
+        .expect("rlp_encoding.json should exist");
+    let v: Value = serde_json::from_str(&json_str).expect("valid JSON");
+
+    // encode_uint
+    for (i, vec) in v["encode_uint"].as_array().unwrap().iter().enumerate() {
+        let value: u128 = vec["value"].as_str().unwrap().parse().unwrap();
+        let expected = vec["expected"].as_str().unwrap();
+        assert_eq!(
+            encode_hex(&encode_uint(value)),
+            expected,
+            "encode_uint[{}] mismatch",
+            i
+        );
+    }
+
+    // encode_bytes
+    for (i, vec) in v["encode_bytes"].as_array().unwrap().iter().enumerate() {
+        let input = decode_hex(vec["input"].as_str().unwrap());
+        let expected = vec["expected"].as_str().unwrap();
+        assert_eq!(
+            encode_hex(&encode_bytes(&input)),
+            expected,
+            "encode_bytes[{}] mismatch",
+            i
+        );
+    }
+
+    // encode_list — items are already RLP-encoded hex strings
+    for (i, vec) in v["encode_list"].as_array().unwrap().iter().enumerate() {
+        let items: Vec<Vec<u8>> = vec["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| decode_hex(s.as_str().unwrap()))
+            .collect();
+        let expected = vec["expected"].as_str().unwrap();
+        assert_eq!(
+            encode_hex(&encode_list(&items)),
+            expected,
+            "encode_list[{}] mismatch",
+            i
+        );
+    }
+
+    // encode_address
+    for (i, vec) in v["encode_address"].as_array().unwrap().iter().enumerate() {
+        let input = decode_hex(vec["input"].as_str().unwrap());
+        let expected = vec["expected"].as_str().unwrap();
+        assert_eq!(
+            encode_hex(&encode_address(&input.try_into().unwrap())),
+            expected,
+            "encode_address[{}] mismatch",
+            i
+        );
+    }
+
+    // encode_hca_tx
+    for (i, vec) in v["encode_hca_tx"].as_array().unwrap().iter().enumerate() {
+        let tx = parse_tx(&vec["tx"]);
+        let w = &vec["witness"];
+        let leaf_version = u8::from_str_radix(
+            w["leaf_version"]
+                .as_str()
+                .unwrap()
+                .strip_prefix("0x")
+                .unwrap(),
+            16,
+        )
+        .unwrap();
+        let leaf_script = decode_hex(w["leaf_script"].as_str().unwrap());
+        let leaf = Leaf::new(leaf_version, leaf_script, "").unwrap();
+        let siblings: Vec<[u8; 32]> = w["siblings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| decode_hex32(s.as_str().unwrap()))
+            .collect();
+        let proof = MerkleProof {
+            leaf_index: w["leaf_index"].as_u64().unwrap() as usize,
+            siblings,
+        };
+        let mut witness = HCAWitness::build(&leaf, proof);
+        let witness_data = decode_hex(w["witness_data"].as_str().unwrap());
+        witness.attach_signature(witness_data).unwrap();
+
+        let encoded = encode_hca_tx(&tx, &witness).unwrap();
+        let expected = vec["expected"].as_str().unwrap();
+        assert_eq!(
+            encode_hex(&encoded),
+            expected,
+            "encode_hca_tx[{}] mismatch",
+            i
+        );
+    }
 }
 
 fn parse_tx(j: &Value) -> TxMessage {
