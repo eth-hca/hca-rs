@@ -1,0 +1,148 @@
+{
+    "description": "RLP encoding/decoding cross-implementation vectors for hca-rs",
+    "version": "0.2.0",
+    "encode_uint": [
+        {
+            "value": "0",
+            "expected": "0x80",
+            "note": "zero encodes as empty byte string"
+        },
+        {
+            "value": "1",
+            "expected": "0x01",
+            "note": "single byte < 0x80 encodes as itself"
+        },
+        {
+            "value": "127",
+            "expected": "0x7f",
+            "note": "max single-byte value"
+        },
+        {
+            "value": "128",
+            "expected": "0x8180",
+            "note": "first value requiring length prefix"
+        },
+        {
+            "value": "1024",
+            "expected": "0x820400",
+            "note": "two-byte integer"
+        },
+        {
+            "value": "65535",
+            "expected": "0x82ffff",
+            "note": "0xffff"
+        },
+        {
+            "value": "18446744073709551615",
+            "expected": "0x88ffffffffffffffff",
+            "note": "u64::MAX"
+        }
+    ],
+    "encode_bytes": [
+        {
+            "input": "0x",
+            "expected": "0x80",
+            "note": "empty bytes"
+        },
+        {
+            "input": "0x00",
+            "expected": "0x00",
+            "note": "single zero byte encodes as itself"
+        },
+        {
+            "input": "0x7f",
+            "expected": "0x7f",
+            "note": "single byte < 0x80 encodes as itself"
+        },
+        {
+            "input": "0x80",
+            "expected": "0x8180",
+            "note": "single byte >= 0x80 needs length prefix"
+        },
+        {
+            "input": "0x68656c6c6f",
+            "expected": "0x8568656c6c6f",
+            "note": "hello"
+        },
+        {
+            "input": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "expected": "0xb838aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "note": "56 bytes — uses long string encoding"
+        }
+    ],
+    "encode_list": [
+        {
+            "items": [],
+            "expected": "0xc0",
+            "note": "empty list"
+        },
+        {
+            "items": [
+                "0x01",
+                "0x02",
+                "0x03"
+            ],
+            "expected": "0xc3010203",
+            "note": "[1, 2, 3] as encoded uints"
+        },
+        {
+            "items": [
+                "0xc0"
+            ],
+            "expected": "0xc1c0",
+            "note": "nested empty list [[]]"
+        },
+        {
+            "items": [
+                "0x80",
+                "0x01",
+                "0x02",
+                "0x03",
+                "0x04",
+                "0x05",
+                "0x06",
+                "0x07",
+                "0x08",
+                "0x09"
+            ],
+            "expected": "0xca80010203040506070809",
+            "note": "[0..9] as encoded uints"
+        }
+    ],
+    "encode_address": [
+        {
+            "input": "0xabababababababababababababababababababab",
+            "expected": "0x94abababababababababababababababababababab",
+            "note": "20-byte address 0xab*20"
+        },
+        {
+            "input": "0x0000000000000000000000000000000000000000",
+            "expected": "0x940000000000000000000000000000000000000000",
+            "note": "zero address"
+        }
+    ],
+    "encode_hca_tx": [
+        {
+            "description": "Minimal transaction — zero value, no calldata, single leaf, no siblings",
+            "tx": {
+                "chain_id": 1,
+                "nonce": 0,
+                "from": "0x1111111111111111111111111111111111111111",
+                "to": "0x2222222222222222222222222222222222222222",
+                "value": "0",
+                "data": "0x",
+                "gas_limit": 21000,
+                "max_fee_per_gas": "1000000000",
+                "max_priority_fee_per_gas": "100000000"
+            },
+            "witness": {
+                "leaf_version": "0x01",
+                "leaf_script": "0x6001",
+                "leaf_index": 0,
+                "siblings": [],
+                "witness_data": "0xdeadbeef"
+            },
+            "expected": "0x05f847018094111111111111111111111111111111111111111194222222222222222222222222222222222222222280825208843b9aca008405f5e100c0800182600180c084deadbeef"
+        }
+    ]
+}
