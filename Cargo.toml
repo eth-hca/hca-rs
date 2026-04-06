@@ -62,4 +62,4 @@ name = "full_flow_bench"
 harness = false
 
 [profile.release]
-opt-level = "s"
+opt-level = 3
