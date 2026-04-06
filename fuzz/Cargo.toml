@@ -40,3 +40,17 @@ path = "fuzz_targets/fuzz_rlp.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "fuzz_rlp_decode"
+path = "fuzz_targets/fuzz_rlp_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_evm_opcode"
+path = "fuzz_targets/fuzz_evm_opcode.rs"
+test = false
+doc = false
+bench = false
