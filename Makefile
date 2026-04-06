@@ -5,6 +5,7 @@ CARGO_NIGHTLY := $(shell which cargo 2>/dev/null || echo $(HOME)/.cargo/bin/carg
         test test-unit test-property test-vector test-doc test-all test-no-default test-one \
         bench bench-hash bench-merkle bench-address bench-flow \
         fuzz fuzz-merkle fuzz-proof fuzz-witness fuzz-rlp \
+        fuzz-rlp-decode fuzz-evm-opcode fuzz-smoke \
         example-create example-spend example-verify examples \
         cli cli-help cli-demo \
         cli-create cli-derive cli-proof cli-verify cli-signing \
@@ -79,7 +80,7 @@ bench-flow:
 # Fuzz (requires nightly)
 # ─────────────────────────────────────────────
 
-fuzz: fuzz-merkle fuzz-proof fuzz-witness fuzz-rlp
+fuzz: fuzz-merkle fuzz-proof fuzz-witness fuzz-rlp fuzz-rlp-decode fuzz-evm-opcode
 
 fuzz-merkle:
 	$(CARGO_NIGHTLY) fuzz run fuzz_merkle
@@ -92,6 +93,20 @@ fuzz-witness:
 
 fuzz-rlp:
 	$(CARGO_NIGHTLY) fuzz run fuzz_rlp
+
+fuzz-rlp-decode:
+	$(CARGO_NIGHTLY) fuzz run fuzz_rlp_decode
+
+fuzz-evm-opcode:
+	$(CARGO_NIGHTLY) fuzz run fuzz_evm_opcode
+
+fuzz-smoke:
+	$(CARGO_NIGHTLY) fuzz run fuzz_merkle -- -max_total_time=30
+	$(CARGO_NIGHTLY) fuzz run fuzz_proof -- -max_total_time=30
+	$(CARGO_NIGHTLY) fuzz run fuzz_witness -- -max_total_time=30
+	$(CARGO_NIGHTLY) fuzz run fuzz_rlp -- -max_total_time=30
+	$(CARGO_NIGHTLY) fuzz run fuzz_rlp_decode -- -max_total_time=30
+	$(CARGO_NIGHTLY) fuzz run fuzz_evm_opcode -- -max_total_time=30
 
 # ─────────────────────────────────────────────
 # Examples
