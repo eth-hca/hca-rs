@@ -8,7 +8,7 @@ use hca_rs::{
     hash::{keccak256, tagged_hash},
     merkle::{Leaf, MerkleTree},
     rlp::{encode_address, encode_bytes, encode_list, encode_uint},
-    witness::TxMessage,
+    witness::{RotationRequest, TxMessage},
 };
 use proptest::prelude::*;
 
@@ -439,5 +439,108 @@ proptest! {
         let hash1 = tx.signing_hash(&leaf_hash1);
         let hash2 = tx.signing_hash(&leaf_hash2);
         prop_assert_ne!(hash1, hash2, "Different leaf hashes should produce different signing hashes");
+    }
+}
+
+// ── RotationRequest property tests ───────────────────────────────────────────
+
+fn arb_non_zero_root() -> impl Strategy<Value = [u8; 32]> {
+    prop::array::uniform32(any::<u8>()).prop_filter("root must be non-zero", |r| r != &[0u8; 32])
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    /// Property: signing_hash is deterministic
+    #[test]
+    fn prop_rotation_deterministic(
+        chain_id in any::<u64>(),
+        nonce in any::<u64>(),
+        from in prop::array::uniform20(any::<u8>()),
+        root in arb_non_zero_root()
+    ) {
+        let req = RotationRequest::new(chain_id, nonce, from, root).unwrap();
+        prop_assert_eq!(req.signing_hash(), req.signing_hash());
+    }
+
+    /// Property: different chain_id produces different hash
+    #[test]
+    fn prop_rotation_chain_separation(
+        chain_id in any::<u64>(),
+        nonce in any::<u64>(),
+        from in prop::array::uniform20(any::<u8>()),
+        root in arb_non_zero_root()
+    ) {
+        let other_chain = chain_id.wrapping_add(1);
+        prop_assume!(other_chain != chain_id);
+        let req1 = RotationRequest::new(chain_id, nonce, from, root).unwrap();
+        let req2 = RotationRequest::new(other_chain, nonce, from, root).unwrap();
+        prop_assert_ne!(req1.signing_hash(), req2.signing_hash());
+    }
+
+    /// Property: different nonce produces different hash
+    #[test]
+    fn prop_rotation_nonce_sensitivity(
+        chain_id in any::<u64>(),
+        nonce in any::<u64>(),
+        from in prop::array::uniform20(any::<u8>()),
+        root in arb_non_zero_root()
+    ) {
+        let other_nonce = nonce.wrapping_add(1);
+        let req1 = RotationRequest::new(chain_id, nonce, from, root).unwrap();
+        let req2 = RotationRequest::new(chain_id, other_nonce, from, root).unwrap();
+        prop_assert_ne!(req1.signing_hash(), req2.signing_hash());
+    }
+
+    /// Property: different new_auth_root produces different hash
+    #[test]
+    fn prop_rotation_root_sensitivity(
+        chain_id in any::<u64>(),
+        nonce in any::<u64>(),
+        from in prop::array::uniform20(any::<u8>()),
+        root1 in arb_non_zero_root(),
+        root2 in arb_non_zero_root()
+    ) {
+        prop_assume!(root1 != root2);
+        let req1 = RotationRequest::new(chain_id, nonce, from, root1).unwrap();
+        let req2 = RotationRequest::new(chain_id, nonce, from, root2).unwrap();
+        prop_assert_ne!(req1.signing_hash(), req2.signing_hash());
+    }
+
+    /// Property: rotation hash differs from tx signing hash for same fields
+    #[test]
+    fn prop_rotation_cross_context_separation(
+        chain_id in any::<u64>(),
+        nonce in any::<u64>(),
+        from in prop::array::uniform20(any::<u8>()),
+        root in arb_non_zero_root()
+    ) {
+        let rotation_req = RotationRequest::new(chain_id, nonce, from, root).unwrap();
+        let tx = TxMessage {
+            chain_id,
+            nonce,
+            from,
+            to: from,
+            value: 0,
+            data: vec![],
+            gas_limit: 21000,
+            max_fee_per_gas: 0,
+            max_priority_fee_per_gas: 0,
+        };
+        // Use root as the leaf_hash so the preimage data is as similar as possible
+        let rotation_hash = rotation_req.signing_hash();
+        let tx_hash = tx.signing_hash(&root);
+        prop_assert_ne!(rotation_hash, tx_hash, "Rotation hash must differ from tx hash");
+    }
+
+    /// Property: zero new_auth_root is always rejected
+    #[test]
+    fn prop_rotation_rejects_zero_root(
+        chain_id in any::<u64>(),
+        nonce in any::<u64>(),
+        from in prop::array::uniform20(any::<u8>())
+    ) {
+        let result = RotationRequest::new(chain_id, nonce, from, [0u8; 32]);
+        prop_assert!(result.is_err());
     }
 }
