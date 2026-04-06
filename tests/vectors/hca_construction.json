@@ -1,0 +1,52 @@
+{
+    "description": "HCA full construction flow — leaves → leaf_hashes → auth_root → address → proof → signing_hash",
+    "version": "0.2.0",
+    "note": "All values produced by hca-rs CLI. Regenerate after any hash formula change.",
+    "leaves": [
+        {
+            "version": "0x01",
+            "script": "0x6001",
+            "description": "Primary ECDSA"
+        },
+        {
+            "version": "0x01",
+            "script": "0x6002",
+            "description": "Recovery key"
+        },
+        {
+            "version": "0x01",
+            "script": "0x6003",
+            "description": "Timelock 30d"
+        }
+    ],
+    "leaf_hashes": [
+        "0xa6e0fc89e0ed70ab39592d78d8e5fa41730d1c07979d28872b8d3776a0e11018",
+        "0x89d5b25ee87bf5d41474f5fd3a2461c0b6d027ceaf33d41713d3658cd2ff9f5d",
+        "0xf23afa6151200889fb02780408d659529771397cbcc80ac2db815250aa966d90"
+    ],
+    "tree": {
+        "depth": 2,
+        "leaf_count": 3,
+        "auth_root": "0x4a867fd41174aae765cebc85902936aad95a5cd4a71c4bb9d8b01c5f1c8a1807"
+    },
+    "address": "0x0184c3abb7a8b89f174ca8857241c4c60744c81e",
+    "proof": {
+        "leaf_index": 0,
+        "leaf_hash": "0xa6e0fc89e0ed70ab39592d78d8e5fa41730d1c07979d28872b8d3776a0e11018",
+        "siblings": [
+            "0x89d5b25ee87bf5d41474f5fd3a2461c0b6d027ceaf33d41713d3658cd2ff9f5d",
+            "0x2c5ec0ff81e5a1ed4906f57df02a7188ab2bbab3292f71f87cd49ee0b4ce35f7"
+        ]
+    },
+    "transaction": {
+        "chain_id": 11155111,
+        "nonce": 0,
+        "from": "0x0184c3abb7a8b89f174ca8857241c4c60744c81e",
+        "to": "0x000000000000000000000000000000000000dead",
+        "value": "1000000000000000",
+        "gas_limit": 21000,
+        "max_fee_per_gas": "1000000000",
+        "max_priority_fee_per_gas": "100000000"
+    },
+    "signing_hash": "0x9a59c9a4f81965e53293a7bce5db3fd97b54a202923172c82758b9a69f5eb788"
+}

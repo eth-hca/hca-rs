@@ -4,7 +4,7 @@
 //! no `"computed_at_runtime"` placeholders.  These vectors are the canonical
 //! reference for hca-go and any future implementation.
 
-use hca_rs::address::derive_address;
+use hca_rs::address::{address_to_hex, derive_address};
 use hca_rs::hash::tagged_hash;
 use hca_rs::merkle::{Leaf, MerkleTree};
 use hca_rs::witness::TxMessage;
@@ -291,6 +291,95 @@ fn test_witness_signing_vectors() {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_hca_construction_vector() {
+    let json_str = fs::read_to_string("tests/vectors/hca_construction.json")
+        .expect("hca_construction.json should exist");
+    let v: Value = serde_json::from_str(&json_str).expect("valid JSON");
+
+    // Build leaves
+    let leaves: Vec<Leaf> = v["leaves"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| {
+            let version = u8::from_str_radix(
+                l["version"].as_str().unwrap().strip_prefix("0x").unwrap(),
+                16,
+            )
+            .unwrap();
+            let script = decode_hex(l["script"].as_str().unwrap());
+            Leaf::new(version, script, "").unwrap()
+        })
+        .collect();
+
+    // Verify leaf hashes
+    let expected_hashes = v["leaf_hashes"].as_array().unwrap();
+    for (i, leaf) in leaves.iter().enumerate() {
+        assert_eq!(
+            encode_hex(&leaf.hash()),
+            expected_hashes[i].as_str().unwrap(),
+            "leaf_hash[{}] mismatch",
+            i
+        );
+    }
+
+    // Build tree and verify auth_root
+    let tree = MerkleTree::new(leaves.clone()).unwrap();
+    let expected_auth_root = v["tree"]["auth_root"].as_str().unwrap();
+    assert_eq!(
+        encode_hex(&tree.auth_root()),
+        expected_auth_root,
+        "auth_root mismatch"
+    );
+
+    // Verify address
+    let expected_address = v["address"].as_str().unwrap();
+    assert_eq!(
+        address_to_hex(&derive_address(&tree.auth_root())),
+        expected_address,
+        "address mismatch"
+    );
+
+    // Verify proof
+    let leaf_index = v["proof"]["leaf_index"].as_u64().unwrap() as usize;
+    let proof = tree.proof(leaf_index).unwrap();
+    let expected_leaf_hash = v["proof"]["leaf_hash"].as_str().unwrap();
+    assert_eq!(
+        encode_hex(&leaves[leaf_index].hash()),
+        expected_leaf_hash,
+        "proof leaf_hash mismatch"
+    );
+    let expected_siblings = v["proof"]["siblings"].as_array().unwrap();
+    assert_eq!(
+        proof.siblings.len(),
+        expected_siblings.len(),
+        "sibling count mismatch"
+    );
+    for (i, sib) in proof.siblings.iter().enumerate() {
+        assert_eq!(
+            encode_hex(sib),
+            expected_siblings[i].as_str().unwrap(),
+            "sibling[{}] mismatch",
+            i
+        );
+    }
+    assert!(
+        MerkleTree::verify(&leaves[leaf_index].hash(), &proof, &tree.auth_root()).unwrap(),
+        "proof verification failed"
+    );
+
+    // Verify signing hash
+    let tx = parse_tx(&v["transaction"]);
+    let leaf_hash = decode_hex32(expected_leaf_hash);
+    let expected_signing_hash = v["signing_hash"].as_str().unwrap();
+    assert_eq!(
+        encode_hex(&tx.signing_hash(&leaf_hash)),
+        expected_signing_hash,
+        "signing_hash mismatch"
+    );
+}
 
 fn parse_tx(j: &Value) -> TxMessage {
     TxMessage {
