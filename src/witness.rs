@@ -5,7 +5,6 @@
 //! - Merkle proof showing the leaf is in auth_root
 //! - Signature data satisfying the leaf's spending condition
 //!
-//! NOTE: This module is partially implemented. Full implementation in PR2.
 
 #[cfg(not(feature = "std"))]
 use alloc::{string::ToString, vec::Vec};

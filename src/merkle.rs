@@ -6,7 +6,11 @@
 //! - Maximum depth: 32 levels (2^32 leaves max)
 
 #[cfg(not(feature = "std"))]
+use alloc::collections::BTreeSet;
+#[cfg(not(feature = "std"))]
 use alloc::{string::String, string::ToString, vec, vec::Vec};
+#[cfg(feature = "std")]
+use std::collections::HashSet;
 
 use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
@@ -105,10 +109,13 @@ impl MerkleTree {
             return Err(HcaError::TreeTooDeep { depth });
         }
 
-        // Detect duplicate leaves by comparing hashes
-        let hashes: Vec<[u8; 32]> = leaves.iter().map(|l| l.hash()).collect();
-        for i in 1..hashes.len() {
-            if hashes[..i].contains(&hashes[i]) {
+        // Detect duplicate leaves — O(n) with a hash set
+        #[cfg(feature = "std")]
+        let mut seen = HashSet::new();
+        #[cfg(not(feature = "std"))]
+        let mut seen = BTreeSet::new();
+        for (i, leaf) in leaves.iter().enumerate() {
+            if !seen.insert(leaf.hash()) {
                 return Err(HcaError::DuplicateLeaf { index: i });
             }
         }
