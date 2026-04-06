@@ -366,18 +366,21 @@ fn arb_tx_message() -> impl Strategy<Value = TxMessage> {
         any::<u64>().prop_filter("Valid gas limit", |&g| g > 0),
         any::<u64>(),
         any::<u64>(),
+        prop::collection::vec(any::<u8>(), 0..256),
     )
         .prop_map(
-            |(chain_id, nonce, from, to, value, gas_limit, max_fee, priority_fee)| TxMessage {
-                chain_id,
-                nonce,
-                from,
-                to,
-                value: value as u128,
-                data: vec![],
-                gas_limit,
-                max_fee_per_gas: max_fee as u128,
-                max_priority_fee_per_gas: priority_fee as u128,
+            |(chain_id, nonce, from, to, value, gas_limit, max_fee, priority_fee, data)| {
+                TxMessage {
+                    chain_id,
+                    nonce,
+                    from,
+                    to,
+                    value: value as u128,
+                    data,
+                    gas_limit,
+                    max_fee_per_gas: max_fee as u128,
+                    max_priority_fee_per_gas: priority_fee as u128,
+                }
             },
         )
 }
@@ -439,6 +442,95 @@ proptest! {
         let hash1 = tx.signing_hash(&leaf_hash1);
         let hash2 = tx.signing_hash(&leaf_hash2);
         prop_assert_ne!(hash1, hash2, "Different leaf hashes should produce different signing hashes");
+    }
+
+    /// Property: Different calldata produces different signing hash
+    #[test]
+    fn prop_tx_calldata_sensitivity(
+        tx in arb_tx_message(),
+        leaf_hash in prop::array::uniform32(any::<u8>()),
+        extra_byte in any::<u8>()
+    ) {
+        let hash1 = tx.signing_hash(&leaf_hash);
+        let mut tx2 = tx.clone();
+        tx2.data.push(extra_byte);
+        let hash2 = tx2.signing_hash(&leaf_hash);
+        prop_assert_ne!(hash1, hash2, "Adding a calldata byte must change the signing hash");
+    }
+
+    /// Property: Empty calldata differs from non-empty calldata
+    #[test]
+    fn prop_tx_empty_vs_nonempty_calldata(
+        mut tx in arb_tx_message(),
+        leaf_hash in prop::array::uniform32(any::<u8>()),
+        nonempty_data in prop::collection::vec(any::<u8>(), 1..128)
+    ) {
+        tx.data = vec![];
+        let hash_empty = tx.signing_hash(&leaf_hash);
+        tx.data = nonempty_data;
+        let hash_nonempty = tx.signing_hash(&leaf_hash);
+        prop_assert_ne!(hash_empty, hash_nonempty, "Empty vs non-empty calldata must produce different hash");
+    }
+}
+
+// ── Merkle leaf_index property tests ─────────────────────────────────────────
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(128))]
+
+    /// Property: proof generated for index A fails verification with a different leaf hash
+    #[test]
+    fn prop_merkle_proof_wrong_index_rejected(
+        // Use distinct discriminants to produce unique, valid leaf scripts: [0x60, discriminant]
+        discriminants in prop::collection::vec(any::<u8>(), 2..8)
+    ) {
+        // Build leaves with script [0x60, d] (PUSH1 d) — always valid EVM
+        let mut leaves: Vec<Leaf> = discriminants
+            .into_iter()
+            .enumerate()
+            .map(|(i, d)| Leaf::new(0x01, vec![0x60, d.wrapping_add(i as u8)], "").unwrap())
+            .collect();
+
+        leaves = dedup_leaves(leaves);
+        prop_assume!(leaves.len() >= 2);
+
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
+        let root = tree.auth_root();
+
+        let proof_for_0 = tree.proof(0).unwrap();
+        let leaf_hash_0 = leaves[0].hash();
+        let leaf_hash_1 = leaves[1].hash();
+
+        // Correct leaf hash verifies
+        prop_assert!(MerkleTree::verify(&leaf_hash_0, &proof_for_0, &root).unwrap());
+
+        // Wrong leaf hash fails — leaf 1's hash does not belong at index 0's position
+        prop_assert!(!MerkleTree::verify(&leaf_hash_1, &proof_for_0, &root).unwrap());
+    }
+
+    /// Property: tampering with any sibling invalidates proof
+    #[test]
+    fn prop_merkle_sibling_tamper_rejected(
+        discriminants in prop::collection::vec(any::<u8>(), 2..8),
+        tamper_byte in any::<u8>()
+    ) {
+        let mut leaves: Vec<Leaf> = discriminants
+            .into_iter()
+            .enumerate()
+            .map(|(i, d)| Leaf::new(0x01, vec![0x60, d.wrapping_add(i as u8)], "").unwrap())
+            .collect();
+        leaves = dedup_leaves(leaves);
+        prop_assume!(leaves.len() >= 2);
+
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
+        let root = tree.auth_root();
+        let mut proof = tree.proof(0).unwrap();
+        prop_assume!(!proof.siblings.is_empty());
+
+        // Tamper first sibling
+        proof.siblings[0][0] ^= tamper_byte | 0x01;
+        let result = MerkleTree::verify(&leaves[0].hash(), &proof, &root).unwrap();
+        prop_assert!(!result, "Tampered sibling must fail verification");
     }
 }
 
