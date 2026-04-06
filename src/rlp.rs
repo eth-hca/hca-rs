@@ -253,16 +253,17 @@ pub fn decode_bytes(input: &[u8]) -> HcaResult<(Vec<u8>, usize)> {
                 len
             )));
         }
-        if input.len() < 1 + len_of_len + len {
+        let total = (1usize)
+            .checked_add(len_of_len)
+            .and_then(|n| n.checked_add(len))
+            .ok_or_else(|| HcaError::RlpDecodeError("length overflow".to_string()))?;
+        if input.len() < total {
             return Err(HcaError::RlpDecodeError(format!(
                 "long string payload truncated: need {} bytes",
                 len
             )));
         }
-        return Ok((
-            input[1 + len_of_len..1 + len_of_len + len].to_vec(),
-            1 + len_of_len + len,
-        ));
+        return Ok((input[1 + len_of_len..total].to_vec(), total));
     }
 
     Err(HcaError::RlpDecodeError(format!(
@@ -334,16 +335,17 @@ pub fn decode_list(input: &[u8]) -> HcaResult<(Vec<u8>, usize)> {
         ));
     }
     let len = decode_usize_be(&input[1..1 + len_of_len])?;
-    if input.len() < 1 + len_of_len + len {
+    let total = (1usize)
+        .checked_add(len_of_len)
+        .and_then(|n| n.checked_add(len))
+        .ok_or_else(|| HcaError::RlpDecodeError("length overflow".to_string()))?;
+    if input.len() < total {
         return Err(HcaError::RlpDecodeError(format!(
             "long list payload truncated: need {} bytes",
             len
         )));
     }
-    Ok((
-        input[1 + len_of_len..1 + len_of_len + len].to_vec(),
-        1 + len_of_len + len,
-    ))
+    Ok((input[1 + len_of_len..total].to_vec(), total))
 }
 
 /// Decode a raw HCA typed transaction.
