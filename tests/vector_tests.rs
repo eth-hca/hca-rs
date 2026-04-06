@@ -8,7 +8,7 @@ use hca_rs::address::{address_to_hex, derive_address};
 use hca_rs::hash::tagged_hash;
 use hca_rs::merkle::{Leaf, MerkleProof, MerkleTree};
 use hca_rs::rlp::{encode_address, encode_bytes, encode_hca_tx, encode_list, encode_uint};
-use hca_rs::witness::{HCAWitness, TxMessage};
+use hca_rs::witness::{HCAWitness, RotationRequest, TxMessage};
 use serde_json::Value;
 use std::fs;
 
@@ -380,6 +380,62 @@ fn test_hca_construction_vector() {
         expected_signing_hash,
         "signing_hash mismatch"
     );
+}
+
+#[test]
+fn test_rotation_vectors() {
+    let json_str =
+        fs::read_to_string("tests/vectors/rotation.json").expect("rotation.json should exist");
+    let v: Value = serde_json::from_str(&json_str).expect("valid JSON");
+
+    let vectors = v["vectors"].as_array().unwrap();
+    println!("\n=== Rotation Signing Hash Vectors ===");
+
+    for (i, vec) in vectors.iter().enumerate() {
+        let description = vec["description"].as_str().unwrap();
+        let chain_id = vec["chain_id"].as_u64().unwrap();
+        let nonce = vec["nonce"].as_u64().unwrap();
+        let from = decode_hex20(vec["from"].as_str().unwrap());
+        let new_auth_root = decode_hex32(vec["new_auth_root"].as_str().unwrap());
+        let expected = vec["expected"].as_str().unwrap();
+
+        let req = RotationRequest::new(chain_id, nonce, from, new_auth_root).unwrap();
+        let got = encode_hex(&req.signing_hash());
+
+        println!("Vector {}: {} => {}", i + 1, description, got);
+        assert_eq!(
+            got,
+            expected,
+            "Vector {}: {} — signing hash mismatch",
+            i + 1,
+            description
+        );
+    }
+
+    // Cross-check: all hashes must be distinct
+    let hashes: Vec<String> = vectors
+        .iter()
+        .map(|vec| {
+            let req = RotationRequest::new(
+                vec["chain_id"].as_u64().unwrap(),
+                vec["nonce"].as_u64().unwrap(),
+                decode_hex20(vec["from"].as_str().unwrap()),
+                decode_hex32(vec["new_auth_root"].as_str().unwrap()),
+            )
+            .unwrap();
+            encode_hex(&req.signing_hash())
+        })
+        .collect();
+
+    for i in 0..hashes.len() {
+        for j in (i + 1)..hashes.len() {
+            assert_ne!(
+                hashes[i], hashes[j],
+                "Vectors {} and {} produced the same hash",
+                i, j
+            );
+        }
+    }
 }
 
 #[test]

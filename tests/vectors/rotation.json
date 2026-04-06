@@ -1,0 +1,55 @@
+{
+    "description": "RotationRequest signing hash cross-implementation vectors",
+    "version": "0.2.0",
+    "note": "rotation_hash = tagged_hash(HCARotate, chain_id || nonce || from || new_auth_root)",
+    "vectors": [
+        {
+            "description": "mainnet, nonce 0",
+            "chain_id": 1,
+            "nonce": 0,
+            "from": "0x1111111111111111111111111111111111111111",
+            "new_auth_root": "0xabababababababababababababababababababababababababababababababab",
+            "expected": "0x797dc50306a3f4eb6448107a085a067007a2abca2376e2d7848d7b5bc6922ebe"
+        },
+        {
+            "description": "sepolia, nonce 0 — must differ from mainnet",
+            "chain_id": 11155111,
+            "nonce": 0,
+            "from": "0x1111111111111111111111111111111111111111",
+            "new_auth_root": "0xabababababababababababababababababababababababababababababababab",
+            "expected": "0x284a1afc3dfbbb1f4b9f817ccfba3941d0b5bcd868c3b403031795bd7f82e438"
+        },
+        {
+            "description": "mainnet, nonce 1 — must differ from nonce 0",
+            "chain_id": 1,
+            "nonce": 1,
+            "from": "0x1111111111111111111111111111111111111111",
+            "new_auth_root": "0xabababababababababababababababababababababababababababababababab",
+            "expected": "0x6807d214410ef6541afe5e6d77c1069b91fb541f71e20c1a6eef52ffdc58a1b6"
+        },
+        {
+            "description": "different from address — must differ from base case",
+            "chain_id": 1,
+            "nonce": 0,
+            "from": "0x2222222222222222222222222222222222222222",
+            "new_auth_root": "0xabababababababababababababababababababababababababababababababab",
+            "expected": "0x436954318e5ff09a19ab26401a20f8e3490d9aa45ccd56ac130638b494f6a1a2"
+        },
+        {
+            "description": "different new_auth_root — must differ from base case",
+            "chain_id": 1,
+            "nonce": 0,
+            "from": "0x1111111111111111111111111111111111111111",
+            "new_auth_root": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "expected": "0xce83ced62cffd5907fe63977573e20e8a63bd4b9befeea049bf078b3d56a3f92"
+        },
+        {
+            "description": "minimal non-zero root",
+            "chain_id": 1,
+            "nonce": 0,
+            "from": "0x1111111111111111111111111111111111111111",
+            "new_auth_root": "0x0100000000000000000000000000000000000000000000000000000000000000",
+            "expected": "0x67c5c22073adfb6767ef0cc6c296904f8bb8625b039a7c09d70ddaa26646c6af"
+        }
+    ]
+}
