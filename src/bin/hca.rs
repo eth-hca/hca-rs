@@ -21,7 +21,6 @@ use std::process;
 #[derive(Parser)]
 #[command(
     name = "hca",
-    
     version,
     about = "Hash-Committed Account CLI (EIP-8215)",
     long_about = "Cryptographic primitives for quantum-safe Ethereum accounts.\n\
@@ -263,20 +262,19 @@ fn cmd_rotation_hash(
 ) -> Result<String, String> {
     let from_bytes = decode_hex(from_hex)?;
     if from_bytes.len() != 20 {
-        return Err(format!(
-            "from: expected 20 bytes, got {}",
-            from_bytes.len()
-        ));
+        return Err(format!("from: expected 20 bytes, got {}", from_bytes.len()));
     }
     let mut from = [0u8; 20];
     from.copy_from_slice(&from_bytes);
 
     let new_auth_root = decode32(new_auth_root_hex)?;
 
-    let req = RotationRequest::new(chain_id, nonce, from, new_auth_root)
-        .map_err(|e| e.to_string())?;
+    let req =
+        RotationRequest::new(chain_id, nonce, from, new_auth_root).map_err(|e| e.to_string())?;
 
-    Ok(pretty(&json!({ "rotation_hash": hex32(&req.signing_hash()) })))
+    Ok(pretty(
+        &json!({ "rotation_hash": hex32(&req.signing_hash()) }),
+    ))
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
