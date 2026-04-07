@@ -504,8 +504,8 @@ mod tests {
         // Swap leaf hashes — leaf 1's hash with proof for index 0 should fail
         let h0 = leaves[0].hash();
         let h1 = leaves[1].hash();
-        let items: Vec<(&[u8; 32], &MerkleProof)> =
-            vec![(&h0, &proofs[0]), (&h1, &proofs[0])];
+        // h1 with proof for index 0 — wrong leaf hash, must fail
+        let items = [(&h0, &proofs[0]), (&h1, &proofs[0])];
         assert!(!MerkleTree::verify_batch(&items, &root).unwrap());
     }
 
