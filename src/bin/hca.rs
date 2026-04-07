@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use hca_rs::address::derive_address;
 use hca_rs::merkle::{Leaf, MerkleTree};
 use hca_rs::rlp::encode_hca_tx;
-use hca_rs::witness::{HCAWitness, TxMessage};
+use hca_rs::witness::{HCAWitness, RotationRequest, TxMessage};
 use hca_rs::MerkleProof;
 use serde_json::{json, Value};
 use std::process;
@@ -107,6 +107,27 @@ enum Commands {
         #[arg(long, value_name = "HEX")]
         leaf_hash: String,
     },
+
+    /// Compute the signing hash for an auth_root rotation request (EIP-8215 §rotation)
+    ///
+    /// Outputs: rotation_hash
+    RotationHash {
+        /// Chain ID
+        #[arg(long, value_name = "U64")]
+        chain_id: u64,
+
+        /// Account nonce
+        #[arg(long, value_name = "U64")]
+        nonce: u64,
+
+        /// HCA account address as 0x-prefixed hex (20 bytes)
+        #[arg(long, value_name = "HEX")]
+        from: String,
+
+        /// New auth_root as 0x-prefixed hex (32 bytes)
+        #[arg(long, value_name = "HEX")]
+        new_auth_root: String,
+    },
 }
 
 // ── entry point ───────────────────────────────────────────────────────────────
@@ -125,6 +146,12 @@ fn main() {
         } => cmd_verify_proof(&leaf_hash, &proof, &auth_root),
         Commands::EncodeTx { tx, witness } => cmd_encode_tx(&tx, &witness),
         Commands::SigningHash { tx, leaf_hash } => cmd_signing_hash(&tx, &leaf_hash),
+        Commands::RotationHash {
+            chain_id,
+            nonce,
+            from,
+            new_auth_root,
+        } => cmd_rotation_hash(chain_id, nonce, &from, &new_auth_root),
     };
 
     match result {
@@ -225,6 +252,29 @@ fn cmd_signing_hash(tx_json: &str, leaf_hash_hex: &str) -> Result<String, String
 
     let hash = tx.signing_hash(&leaf_hash);
     Ok(pretty(&json!({ "signing_hash": hex32(&hash) })))
+}
+
+fn cmd_rotation_hash(
+    chain_id: u64,
+    nonce: u64,
+    from_hex: &str,
+    new_auth_root_hex: &str,
+) -> Result<String, String> {
+    let from_bytes = decode_hex(from_hex)?;
+    if from_bytes.len() != 20 {
+        return Err(format!("from: expected 20 bytes, got {}", from_bytes.len()));
+    }
+    let mut from = [0u8; 20];
+    from.copy_from_slice(&from_bytes);
+
+    let new_auth_root = decode32(new_auth_root_hex)?;
+
+    let req =
+        RotationRequest::new(chain_id, nonce, from, new_auth_root).map_err(|e| e.to_string())?;
+
+    Ok(pretty(
+        &json!({ "rotation_hash": hex32(&req.signing_hash()) }),
+    ))
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
