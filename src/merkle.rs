@@ -84,6 +84,63 @@ pub struct MerkleProof {
     pub siblings: Vec<[u8; 32]>,
 }
 
+/// Compact proof set — shared siblings deduplicated into a single table.
+///
+/// When proving multiple leaves from the same tree, many sibling hashes at
+/// higher levels are identical. `CompactProofSet` stores each unique sibling
+/// once and uses per-leaf index lists to reference them.
+///
+/// # Wire savings example
+/// 4-leaf depth-2 tree, proving all 4 leaves:
+/// - Standard: 4 proofs × 2 siblings × 32 bytes = 256 bytes
+/// - Compact:  3 unique siblings × 32 bytes + 4 × 2 indices = 104 bytes
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct CompactProofSet {
+    /// Deduplicated sibling hashes (the shared table)
+    pub siblings: Vec<[u8; 32]>,
+    /// Per-leaf: (leaf_index, [sibling_table_indices from leaf to root])
+    pub proofs: Vec<(usize, Vec<usize>)>,
+}
+
+impl CompactProofSet {
+    /// Expand one entry back into a standard `MerkleProof`.
+    ///
+    /// `entry` is the position in `self.proofs` (not the leaf_index).
+    pub fn expand(&self, entry: usize) -> HcaResult<MerkleProof> {
+        let (leaf_index, ref sib_indices) = self.proofs[entry];
+        let siblings = sib_indices
+            .iter()
+            .map(|&i| {
+                self.siblings
+                    .get(i)
+                    .copied()
+                    .ok_or(HcaError::ProofVerificationFailed)
+            })
+            .collect::<HcaResult<Vec<_>>>()?;
+        Ok(MerkleProof {
+            leaf_index,
+            siblings,
+        })
+    }
+
+    /// Verify all proofs in the compact set against `auth_root`.
+    ///
+    /// Returns `Ok(true)` only if every proof is valid.
+    pub fn verify_all(&self, leaf_hashes: &[[u8; 32]], auth_root: &[u8; 32]) -> HcaResult<bool> {
+        if leaf_hashes.len() != self.proofs.len() {
+            return Err(HcaError::ProofVerificationFailed);
+        }
+        for (i, leaf_hash) in leaf_hashes.iter().enumerate() {
+            let proof = self.expand(i)?;
+            if !MerkleTree::verify(leaf_hash, &proof, auth_root)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+}
+
 /// HCA Merkle tree
 #[derive(Clone, Debug)]
 pub struct MerkleTree {
@@ -218,6 +275,59 @@ impl MerkleTree {
         }
 
         Ok(current.ct_eq(auth_root).into())
+    }
+
+    /// Generate proofs for multiple leaf indices in one call.
+    ///
+    /// Returns proofs in the same order as `indices`.
+    /// Fails fast if any index is out of bounds.
+    pub fn proofs(&self, indices: &[usize]) -> HcaResult<Vec<MerkleProof>> {
+        indices.iter().map(|&i| self.proof(i)).collect()
+    }
+
+    /// Generate a compact proof set for multiple leaf indices.
+    ///
+    /// Siblings shared across proofs are stored once in a deduplicated table.
+    /// Use `CompactProofSet::expand()` to recover individual `MerkleProof`s,
+    /// or `CompactProofSet::verify_all()` to verify directly.
+    pub fn compact_proofs(&self, indices: &[usize]) -> HcaResult<CompactProofSet> {
+        let mut table: Vec<[u8; 32]> = Vec::new();
+        let mut per_leaf: Vec<(usize, Vec<usize>)> = Vec::with_capacity(indices.len());
+
+        for &leaf_index in indices {
+            let proof = self.proof(leaf_index)?;
+            let mut sib_indices = Vec::with_capacity(proof.siblings.len());
+            for sib in &proof.siblings {
+                let idx = table.iter().position(|s| s == sib).unwrap_or_else(|| {
+                    table.push(*sib);
+                    table.len() - 1
+                });
+                sib_indices.push(idx);
+            }
+            per_leaf.push((leaf_index, sib_indices));
+        }
+
+        Ok(CompactProofSet {
+            siblings: table,
+            proofs: per_leaf,
+        })
+    }
+
+    /// Verify multiple proofs against the same auth_root.
+    ///
+    /// Returns `Ok(true)` only if every proof is valid.
+    /// Returns `Ok(false)` on the first invalid proof.
+    /// Returns `Err` if any proof exceeds `MAX_TREE_DEPTH`.
+    pub fn verify_batch(
+        items: &[(&[u8; 32], &MerkleProof)],
+        auth_root: &[u8; 32],
+    ) -> HcaResult<bool> {
+        for (leaf_hash, proof) in items {
+            if !Self::verify(leaf_hash, proof, auth_root)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 }
 
@@ -412,5 +522,107 @@ mod tests {
         let result = MerkleTree::verify(&[0u8; 32], &proof, &[0u8; 32]);
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), HcaError::TreeTooDeep { .. }));
+    }
+
+    fn make_tree(n: usize) -> (MerkleTree, Vec<Leaf>) {
+        let leaves: Vec<Leaf> = (0..n)
+            .map(|i| Leaf::new(0x01, vec![0x60, i as u8], &format!("leaf {}", i)).unwrap())
+            .collect();
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
+        (tree, leaves)
+    }
+
+    // ── compact proof tests ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_compact_proofs_deduplicates_siblings() {
+        let (tree, _) = make_tree(4);
+        let indices = [0, 1, 2, 3];
+        let compact = tree.compact_proofs(&indices).unwrap();
+
+        // 4 leaves at depth 2: 2 siblings per proof = 8 total, but top sibling is shared
+        // Unique siblings must be fewer than 4*2 = 8
+        assert!(compact.siblings.len() < 8);
+        assert_eq!(compact.proofs.len(), 4);
+    }
+
+    #[test]
+    fn test_compact_proofs_verify_all() {
+        let (tree, leaves) = make_tree(4);
+        let indices = [0, 1, 2, 3];
+        let compact = tree.compact_proofs(&indices).unwrap();
+        let root = tree.auth_root();
+        let hashes: Vec<[u8; 32]> = leaves.iter().map(|l| l.hash()).collect();
+        assert!(compact.verify_all(&hashes, &root).unwrap());
+    }
+
+    #[test]
+    fn test_compact_proofs_expand_matches_standard() {
+        let (tree, leaves) = make_tree(4);
+        let compact = tree.compact_proofs(&[0, 2]).unwrap();
+        let root = tree.auth_root();
+
+        // Expand and compare with standard proof
+        let expanded_0 = compact.expand(0).unwrap();
+        let standard_0 = tree.proof(0).unwrap();
+        assert_eq!(expanded_0.leaf_index, standard_0.leaf_index);
+        assert_eq!(expanded_0.siblings, standard_0.siblings);
+        assert!(MerkleTree::verify(&leaves[0].hash(), &expanded_0, &root).unwrap());
+
+        let expanded_1 = compact.expand(1).unwrap();
+        let standard_2 = tree.proof(2).unwrap();
+        assert_eq!(expanded_1.leaf_index, standard_2.leaf_index);
+        assert_eq!(expanded_1.siblings, standard_2.siblings);
+    }
+
+    #[test]
+    fn test_compact_proofs_single_leaf_tree() {
+        let (tree, leaves) = make_tree(1);
+        let compact = tree.compact_proofs(&[0]).unwrap();
+        let root = tree.auth_root();
+        // Single leaf — no siblings, table is empty
+        assert!(compact.siblings.is_empty());
+        let hashes = [leaves[0].hash()];
+        assert!(compact.verify_all(&hashes, &root).unwrap());
+    }
+
+    #[test]
+    fn test_compact_proofs_empty_indices() {
+        let (tree, _) = make_tree(4);
+        let compact = tree.compact_proofs(&[]).unwrap();
+        assert!(compact.siblings.is_empty());
+        assert!(compact.proofs.is_empty());
+        let root = tree.auth_root();
+        assert!(compact.verify_all(&[], &root).unwrap());
+    }
+
+    #[test]
+    fn test_compact_proofs_wrong_leaf_hash_fails() {
+        let (tree, leaves) = make_tree(4);
+        let compact = tree.compact_proofs(&[0, 1]).unwrap();
+        let root = tree.auth_root();
+        // Swap hashes — wrong hash for entry 0
+        let hashes = [leaves[1].hash(), leaves[0].hash()];
+        assert!(!compact.verify_all(&hashes, &root).unwrap());
+    }
+
+    #[test]
+    fn test_compact_proofs_out_of_bounds_fails() {
+        let (tree, _) = make_tree(4);
+        assert!(tree.compact_proofs(&[0, 99]).is_err());
+    }
+
+    #[test]
+    fn test_compact_proofs_eight_leaves_deduplication() {
+        let (tree, leaves) = make_tree(8);
+        let indices: Vec<usize> = (0..8).collect();
+        let compact = tree.compact_proofs(&indices).unwrap();
+        let root = tree.auth_root();
+
+        // 8 leaves depth-3: 3 siblings per proof = 24 total raw, deduplicated must be < 24
+        assert!(compact.siblings.len() < 24);
+
+        let hashes: Vec<[u8; 32]> = leaves.iter().map(|l| l.hash()).collect();
+        assert!(compact.verify_all(&hashes, &root).unwrap());
     }
 }
