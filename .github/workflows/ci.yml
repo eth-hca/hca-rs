@@ -122,31 +122,27 @@ jobs:
       - name: Build WASM (nodejs)
         run: wasm-pack build --target nodejs --features wasm
 
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install tarpaulin
-        run: cargo install cargo-tarpaulin
-
-      - name: Generate coverage
-        run: cargo tarpaulin --all-features --workspace --timeout 300 --out xml
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./cobertura.xml
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  # coverage disabled until release — re-enable by uncommenting
+  # coverage:
+  #   name: Code Coverage
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install Rust stable
+  #       uses: dtolnay/rust-toolchain@stable
+  #     - name: Rust cache
+  #       uses: Swatinem/rust-cache@v2
+  #     - name: Install tarpaulin
+  #       run: cargo install cargo-tarpaulin
+  #     - name: Generate coverage
+  #       run: cargo tarpaulin --all-features --workspace --timeout 300 --out xml
+  #     - name: Upload coverage to Codecov
+  #       uses: codecov/codecov-action@v4
+  #       with:
+  #         files: ./cobertura.xml
+  #         fail_ci_if_error: false
+  #       env:
+  #         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   msrv:
     name: Minimum Supported Rust Version

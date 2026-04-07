@@ -219,6 +219,31 @@ impl MerkleTree {
 
         Ok(current.ct_eq(auth_root).into())
     }
+
+    /// Generate proofs for multiple leaf indices in one call.
+    ///
+    /// Returns proofs in the same order as `indices`.
+    /// Fails fast if any index is out of bounds.
+    pub fn proofs(&self, indices: &[usize]) -> HcaResult<Vec<MerkleProof>> {
+        indices.iter().map(|&i| self.proof(i)).collect()
+    }
+
+    /// Verify multiple proofs against the same auth_root.
+    ///
+    /// Returns `Ok(true)` only if every proof is valid.
+    /// Returns `Ok(false)` on the first invalid proof.
+    /// Returns `Err` if any proof exceeds `MAX_TREE_DEPTH`.
+    pub fn verify_batch(
+        items: &[(&[u8; 32], &MerkleProof)],
+        auth_root: &[u8; 32],
+    ) -> HcaResult<bool> {
+        for (leaf_hash, proof) in items {
+            if !Self::verify(leaf_hash, proof, auth_root)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
 }
 
 /// Compute branch node hash
@@ -412,5 +437,86 @@ mod tests {
         let result = MerkleTree::verify(&[0u8; 32], &proof, &[0u8; 32]);
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), HcaError::TreeTooDeep { .. }));
+    }
+
+    fn make_tree(n: usize) -> (MerkleTree, Vec<Leaf>) {
+        let leaves: Vec<Leaf> = (0..n)
+            .map(|i| Leaf::new(0x01, vec![0x60, i as u8], &format!("leaf {}", i)).unwrap())
+            .collect();
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
+        (tree, leaves)
+    }
+
+    #[test]
+    fn test_batch_proofs_all_leaves() {
+        let (tree, leaves) = make_tree(4);
+        let indices: Vec<usize> = (0..leaves.len()).collect();
+        let proofs = tree.proofs(&indices).unwrap();
+        assert_eq!(proofs.len(), 4);
+        let root = tree.auth_root();
+        for (i, proof) in proofs.iter().enumerate() {
+            assert!(MerkleTree::verify(&leaves[i].hash(), proof, &root).unwrap());
+        }
+    }
+
+    #[test]
+    fn test_batch_proofs_partial() {
+        let (tree, leaves) = make_tree(4);
+        let proofs = tree.proofs(&[0, 2]).unwrap();
+        let root = tree.auth_root();
+        assert!(MerkleTree::verify(&leaves[0].hash(), &proofs[0], &root).unwrap());
+        assert!(MerkleTree::verify(&leaves[2].hash(), &proofs[1], &root).unwrap());
+    }
+
+    #[test]
+    fn test_batch_proofs_out_of_bounds_fails() {
+        let (tree, _) = make_tree(4);
+        assert!(tree.proofs(&[0, 99]).is_err());
+    }
+
+    #[test]
+    fn test_verify_batch_all_valid() {
+        let (tree, leaves) = make_tree(4);
+        let indices: Vec<usize> = (0..leaves.len()).collect();
+        let proofs = tree.proofs(&indices).unwrap();
+        let root = tree.auth_root();
+        let items: Vec<(&[u8; 32], &MerkleProof)> = leaves
+            .iter()
+            .map(|l| l.hash())
+            .zip(proofs.iter())
+            .map(|(h, p)| (Box::leak(Box::new(h)) as &[u8; 32], p))
+            .collect();
+        assert!(MerkleTree::verify_batch(&items, &root).unwrap());
+    }
+
+    #[test]
+    fn test_verify_batch_empty() {
+        let (tree, _) = make_tree(2);
+        let root = tree.auth_root();
+        assert!(MerkleTree::verify_batch(&[], &root).unwrap());
+    }
+
+    #[test]
+    fn test_verify_batch_one_invalid_fails() {
+        let (tree, leaves) = make_tree(4);
+        let proofs = tree.proofs(&[0, 1]).unwrap();
+        let root = tree.auth_root();
+        // Swap leaf hashes — leaf 1's hash with proof for index 0 should fail
+        let h0 = leaves[0].hash();
+        let h1 = leaves[1].hash();
+        // h1 with proof for index 0 — wrong leaf hash, must fail
+        let items = [(&h0, &proofs[0]), (&h1, &proofs[0])];
+        assert!(!MerkleTree::verify_batch(&items, &root).unwrap());
+    }
+
+    #[test]
+    fn test_verify_batch_order_preserved() {
+        // Verify that proofs() returns proofs in the same order as the requested indices
+        let (tree, leaves) = make_tree(4);
+        let proofs = tree.proofs(&[3, 1, 0]).unwrap();
+        let root = tree.auth_root();
+        assert!(MerkleTree::verify(&leaves[3].hash(), &proofs[0], &root).unwrap());
+        assert!(MerkleTree::verify(&leaves[1].hash(), &proofs[1], &root).unwrap());
+        assert!(MerkleTree::verify(&leaves[0].hash(), &proofs[2], &root).unwrap());
     }
 }
