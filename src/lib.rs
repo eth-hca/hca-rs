@@ -53,6 +53,7 @@ pub mod constants;
 pub mod error;
 pub mod evm;
 pub mod hash;
+pub mod leaf_version;
 pub mod merkle;
 pub mod rlp;
 pub mod witness;
@@ -65,6 +66,7 @@ pub use address::derive_address;
 pub use builder::{TreeBuilder, TxBuilder};
 pub use error::{HcaError, HcaResult};
 pub use hash::{keccak256, tagged_hash};
+pub use leaf_version::{validate_for_version, LeafVersion};
 pub use merkle::{Leaf, MerkleProof, MerkleTree};
 pub use witness::{HCAWitness, RotationRequest, TxMessage};
 
