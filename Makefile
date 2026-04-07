@@ -8,7 +8,7 @@ CARGO_NIGHTLY := $(shell which cargo 2>/dev/null || echo $(HOME)/.cargo/bin/carg
         fuzz-rlp-decode fuzz-evm-opcode fuzz-smoke \
         example-create example-spend example-verify examples \
         cli cli-help cli-demo \
-        cli-create cli-derive cli-proof cli-verify cli-signing \
+        cli-create cli-derive cli-proof cli-verify cli-signing cli-rotation \
         lint fmt fmt-check check clean
 
 # ─────────────────────────────────────────────
@@ -181,23 +181,33 @@ INDEX ?= 0
 
 # make cli-create
 cli-create:
-	hca create-account --leaves '$(LEAVES)'
+	$(CARGO) run -q --bin hca -- create-account --leaves '$(LEAVES)'
 
 # make cli-derive AUTH_ROOT=0x...
 cli-derive:
-	hca derive-address --auth-root $(AUTH_ROOT)
+	$(CARGO) run -q --bin hca -- derive-address --auth-root $(AUTH_ROOT)
 
 # make cli-proof  or  make cli-proof INDEX=1
 cli-proof:
-	hca generate-proof --leaves '$(LEAVES)' --index $(INDEX)
+	$(CARGO) run -q --bin hca -- generate-proof --leaves '$(LEAVES)' --index $(INDEX)
 
 # make cli-verify LEAF_HASH=0x... PROOF='{"leaf_index":0,"siblings":[...]}' AUTH_ROOT=0x...
 cli-verify:
-	hca verify-proof --leaf-hash $(LEAF_HASH) --proof '$(PROOF)' --auth-root $(AUTH_ROOT)
+	$(CARGO) run -q --bin hca -- verify-proof --leaf-hash $(LEAF_HASH) --proof '$(PROOF)' --auth-root $(AUTH_ROOT)
 
 # make cli-signing LEAF_HASH=0x... TX='{"chain_id":1,...}'
 cli-signing:
-	hca signing-hash --leaf-hash $(LEAF_HASH) --tx '$(TX)'
+	$(CARGO) run -q --bin hca -- signing-hash --leaf-hash $(LEAF_HASH) --tx '$(TX)'
+
+FROM ?= 0x0101010101010101010101010101010101010101
+NEW_AUTH_ROOT ?= 0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+CHAIN_ID ?= 1
+NONCE ?= 0
+
+# make cli-rotation
+# make cli-rotation CHAIN_ID=11155111 NONCE=3 FROM=0x... NEW_AUTH_ROOT=0x...
+cli-rotation:
+	$(CARGO) run -q --bin hca -- rotation-hash --chain-id $(CHAIN_ID) --nonce $(NONCE) --from $(FROM) --new-auth-root $(NEW_AUTH_ROOT)
 
 # ─────────────────────────────────────────────
 # Lint & Format
