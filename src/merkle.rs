@@ -143,6 +143,8 @@ impl CompactProofSet {
 
 /// HCA Merkle tree
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(into = "MerkleTreeSerializable"))]
 pub struct MerkleTree {
     /// The original spending-condition leaves (in insertion order)
     pub leaves: Vec<Leaf>,
@@ -333,6 +335,28 @@ impl MerkleTree {
 
 /// Compute branch node hash
 /// branch = tagged_hash("HCABranch", left || right)
+/// Serialization proxy — only the leaves are stored; nodes are recomputed on load.
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+struct MerkleTreeSerializable {
+    leaves: Vec<Leaf>,
+}
+
+#[cfg(feature = "serde")]
+impl From<MerkleTree> for MerkleTreeSerializable {
+    fn from(t: MerkleTree) -> Self {
+        Self { leaves: t.leaves }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for MerkleTree {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let raw = MerkleTreeSerializable::deserialize(d)?;
+        MerkleTree::new(raw.leaves).map_err(serde::de::Error::custom)
+    }
+}
+
 pub(crate) fn branch_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
     let mut input = [0u8; 64];
     input[..32].copy_from_slice(left);
@@ -624,5 +648,35 @@ mod tests {
 
         let hashes: Vec<[u8; 32]> = leaves.iter().map(|l| l.hash()).collect();
         assert!(compact.verify_all(&hashes, &root).unwrap());
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_merkle_tree_serde_roundtrip() {
+        let leaves = vec![
+            leaf(b"primary key script", "primary"),
+            leaf(b"recovery key script", "recovery"),
+            leaf(b"timelock script", "timelock"),
+        ];
+        let tree = MerkleTree::new(leaves).unwrap();
+        let root_before = tree.auth_root();
+
+        let json = serde_json::to_string(&tree).unwrap();
+        let tree2: MerkleTree = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(tree2.auth_root(), root_before);
+        assert_eq!(tree2.leaves.len(), tree.leaves.len());
+        assert_eq!(tree2.depth, tree.depth);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_merkle_tree_serde_only_serializes_leaves() {
+        let leaves = vec![leaf(b"script A", "a"), leaf(b"script B", "b")];
+        let tree = MerkleTree::new(leaves).unwrap();
+        let json = serde_json::to_string(&tree).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v.get("leaves").is_some());
+        assert!(v.get("nodes").is_none());
     }
 }
