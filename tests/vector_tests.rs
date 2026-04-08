@@ -5,7 +5,7 @@
 //! reference for hca-go and any future implementation.
 
 use hca_rs::address::{address_to_hex, derive_address};
-use hca_rs::hash::tagged_hash;
+use hca_rs::hash::tagged_hash_str as tagged_hash;
 use hca_rs::merkle::{Leaf, MerkleProof, MerkleTree};
 use hca_rs::rlp::{encode_address, encode_bytes, encode_hca_tx, encode_list, encode_uint};
 use hca_rs::witness::{HCAWitness, RotationRequest, TxMessage};

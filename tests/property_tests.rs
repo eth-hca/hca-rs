@@ -5,7 +5,7 @@
 
 use hca_rs::{
     address::derive_address,
-    hash::{keccak256, tagged_hash},
+    hash::{keccak256, tagged_hash_str as tagged_hash},
     merkle::{Leaf, MerkleTree},
     rlp::{encode_address, encode_bytes, encode_list, encode_uint},
     witness::{RotationRequest, TxMessage},

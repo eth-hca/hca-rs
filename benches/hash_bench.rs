@@ -4,7 +4,7 @@
 //! Measures performance on various input sizes.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use hca_rs::hash::{keccak256, tagged_hash};
+use hca_rs::hash::{keccak256, tag_hashes, tagged_hash};
 
 /// Benchmark keccak256 throughput for different input sizes
 fn bench_keccak256(c: &mut Criterion) {
@@ -31,7 +31,7 @@ fn bench_tagged_hash(c: &mut Criterion) {
         let data = vec![0u8; *size];
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
-            b.iter(|| tagged_hash(black_box("HCALeaf"), black_box(&data)));
+            b.iter(|| tagged_hash(black_box(&tag_hashes::LEAF), black_box(&data)));
         });
     }
 
@@ -43,11 +43,17 @@ fn bench_tagged_hash_tags(c: &mut Criterion) {
     let mut group = c.benchmark_group("tagged_hash_tags");
     let data = vec![0u8; 256];
 
-    let tags = ["HCAAddr", "HCALeaf", "HCABranch", "HCAWitness", "HCARotate"];
+    let tags = [
+        ("HCAAddr", &tag_hashes::ADDR),
+        ("HCALeaf", &tag_hashes::LEAF),
+        ("HCABranch", &tag_hashes::BRANCH),
+        ("HCAWitness", &tag_hashes::WITNESS),
+        ("HCARotate", &tag_hashes::ROTATE),
+    ];
 
-    for tag in tags.iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(tag), tag, |b, &tag| {
-            b.iter(|| tagged_hash(black_box(tag), black_box(&data)));
+    for (name, hash) in tags.iter() {
+        group.bench_with_input(BenchmarkId::from_parameter(name), hash, |b, &hash| {
+            b.iter(|| tagged_hash(black_box(hash), black_box(&data)));
         });
     }
 
