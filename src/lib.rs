@@ -65,7 +65,7 @@ pub mod wasm;
 pub use address::derive_address;
 pub use builder::{TreeBuilder, TxBuilder};
 pub use error::{HcaError, HcaResult};
-pub use hash::{keccak256, tagged_hash};
+pub use hash::{keccak256, tag_hashes, tagged_hash, tagged_hash_str};
 pub use leaf_version::{validate_for_version, LeafVersion};
 pub use merkle::{Leaf, MerkleProof, MerkleTree};
 pub use witness::{HCAWitness, RotationRequest, TxMessage};
