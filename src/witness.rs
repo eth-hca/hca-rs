@@ -10,7 +10,7 @@
 use alloc::{string::ToString, vec::Vec};
 
 use crate::error::{HcaError, HcaResult};
-use crate::hash::{tagged_hash, tags};
+use crate::hash::{tag_hashes, tagged_hash};
 use crate::merkle::{Leaf, MerkleProof};
 
 /// Transaction message to be signed
@@ -69,7 +69,7 @@ impl TxMessage {
         data.extend_from_slice(&self.max_priority_fee_per_gas.to_be_bytes());
         data.extend_from_slice(leaf_hash);
 
-        tagged_hash(tags::WITNESS, &data)
+        tagged_hash(&tag_hashes::WITNESS, &data)
     }
 }
 
@@ -242,7 +242,7 @@ impl RotationRequest {
         data.extend_from_slice(&self.nonce.to_be_bytes());
         data.extend_from_slice(&self.from);
         data.extend_from_slice(&self.new_auth_root);
-        tagged_hash(tags::ROTATE, &data)
+        tagged_hash(&tag_hashes::ROTATE, &data)
     }
 }
 

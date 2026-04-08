@@ -15,7 +15,7 @@ use std::collections::HashSet;
 use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
 use crate::evm::opcode::validate_leaf_script;
-use crate::hash::{tagged_hash, tags};
+use crate::hash::{tag_hashes, tagged_hash};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 #[cfg(feature = "serde")]
@@ -67,7 +67,7 @@ impl Leaf {
         let mut input = Vec::with_capacity(1 + self.script.len());
         input.push(self.version);
         input.extend_from_slice(&self.script);
-        tagged_hash(tags::LEAF, &input)
+        tagged_hash(&tag_hashes::LEAF, &input)
     }
 
     /// Return true if the leaf version is valid
@@ -372,7 +372,7 @@ pub(crate) fn branch_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
     let mut input = [0u8; 64];
     input[..32].copy_from_slice(left);
     input[32..].copy_from_slice(right);
-    tagged_hash(tags::BRANCH, &input)
+    tagged_hash(&tag_hashes::BRANCH, &input)
 }
 
 fn next_power_of_two(n: usize) -> usize {
