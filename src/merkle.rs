@@ -16,6 +16,8 @@ use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
 use crate::evm::opcode::validate_leaf_script;
 use crate::hash::{tagged_hash, tags};
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
@@ -182,6 +184,9 @@ impl MerkleTree {
         let size = next_power_of_two(leaves.len());
 
         // Level 0: leaf hashes, padded to power of 2
+        #[cfg(feature = "parallel")]
+        let mut level_0: Vec<[u8; 32]> = leaves.par_iter().map(|l| l.hash()).collect();
+        #[cfg(not(feature = "parallel"))]
         let mut level_0: Vec<[u8; 32]> = leaves.iter().map(|l| l.hash()).collect();
         let last = *level_0.last().unwrap();
         while level_0.len() < size {
@@ -199,6 +204,12 @@ impl MerkleTree {
         let mut levels = vec![level_0];
         for _ in 0..depth {
             let prev = levels.last().unwrap();
+            #[cfg(feature = "parallel")]
+            let next: Vec<[u8; 32]> = prev
+                .par_chunks(2)
+                .map(|pair| branch_hash(&pair[0], &pair[1]))
+                .collect();
+            #[cfg(not(feature = "parallel"))]
             let next: Vec<[u8; 32]> = prev
                 .chunks(2)
                 .map(|pair| branch_hash(&pair[0], &pair[1]))
