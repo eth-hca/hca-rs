@@ -420,6 +420,7 @@ dependencies = [
  "js-sys",
  "proptest",
  "rayon",
+ "rayon-core",
  "serde",
  "serde_json",
  "sha2",
