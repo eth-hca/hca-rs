@@ -5,11 +5,13 @@
 
 use clap::{Parser, Subcommand};
 use hca_rs::address::derive_address;
+use hca_rs::hash::tagged_hash_str;
 use hca_rs::merkle::{Leaf, MerkleTree};
 use hca_rs::rlp::encode_hca_tx;
 use hca_rs::witness::{HCAWitness, RotationRequest, TxMessage};
 use hca_rs::MerkleProof;
 use serde_json::{json, Value};
+use std::fs;
 use std::process;
 
 // ── CLI definition ────────────────────────────────────────────────────────────
@@ -128,6 +130,22 @@ enum Commands {
         #[arg(long, value_name = "HEX")]
         new_auth_root: String,
     },
+
+    /// Generate cross-implementation test vectors for all HCA operations
+    ///
+    /// Outputs a JSON object containing vectors for: tagged_hash, address
+    /// derivation, Merkle proofs, and rotation hashes.
+    GenerateVectors,
+
+    /// Verify a test vector file against the current implementation
+    ///
+    /// Reads a JSON vector file (as produced by generate-vectors) and
+    /// checks every entry. Exits 0 if all pass, 1 if any fail.
+    VerifyVectors {
+        /// Path to the JSON vector file
+        #[arg(long, value_name = "PATH")]
+        file: String,
+    },
 }
 
 // ── entry point ───────────────────────────────────────────────────────────────
@@ -152,6 +170,8 @@ fn main() {
             from,
             new_auth_root,
         } => cmd_rotation_hash(chain_id, nonce, &from, &new_auth_root),
+        Commands::GenerateVectors => cmd_generate_vectors(),
+        Commands::VerifyVectors { file } => cmd_verify_vectors(&file),
     };
 
     match result {
@@ -275,6 +295,293 @@ fn cmd_rotation_hash(
     Ok(pretty(
         &json!({ "rotation_hash": hex32(&req.signing_hash()) }),
     ))
+}
+
+fn cmd_generate_vectors() -> Result<String, String> {
+    // ── tagged_hash vectors ──────────────────────────────────────────────────
+    let th_cases: &[(&str, &str)] = &[
+        ("HCAAddr", "0x"),
+        (
+            "HCAAddr",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        ),
+        (
+            "HCALeaf",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        ),
+        (
+            "HCABranch",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        ),
+        (
+            "HCAWitness",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        ),
+        ("HCARotate", "0x010203"),
+    ];
+
+    let tagged_hash_vectors: Vec<Value> = th_cases
+        .iter()
+        .map(|(tag, data_hex)| {
+            let data = decode_hex(data_hex).unwrap();
+            let got = tagged_hash_str(tag, &data);
+            json!({
+                "tag":      tag,
+                "data":     data_hex,
+                "expected": hex32(&got),
+            })
+        })
+        .collect();
+
+    // ── address derivation vectors ───────────────────────────────────────────
+    let addr_cases: &[&str] = &[
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        "0xabababababababababababababababababababababababababababababababab",
+    ];
+
+    let address_vectors: Vec<Value> = addr_cases
+        .iter()
+        .map(|root_hex| {
+            let root = decode32(root_hex).unwrap();
+            let addr = derive_address(&root);
+            json!({
+                "auth_root": root_hex,
+                "address":   hex20(&addr),
+            })
+        })
+        .collect();
+
+    // ── Merkle proof vectors ─────────────────────────────────────────────────
+    let leaves_raw = vec![
+        Leaf::new(0x01, vec![0x60, 0x01], "primary").map_err(|e| e.to_string())?,
+        Leaf::new(0x01, vec![0x60, 0x02], "recovery").map_err(|e| e.to_string())?,
+        Leaf::new(0x01, vec![0x60, 0x03], "timelock").map_err(|e| e.to_string())?,
+    ];
+    let tree = MerkleTree::new(leaves_raw.clone()).map_err(|e| e.to_string())?;
+    let root = tree.auth_root();
+
+    let proof_vectors: Vec<Value> = (0..leaves_raw.len())
+        .map(|i| {
+            let proof = tree.proof(i).unwrap();
+            let lh = leaves_raw[i].hash();
+            json!({
+                "leaf_index": i,
+                "leaf_hash":  hex32(&lh),
+                "auth_root":  hex32(&root),
+                "siblings":   proof.siblings.iter().map(hex32).collect::<Vec<_>>(),
+                "valid":      MerkleTree::verify(&lh, &proof, &root).unwrap(),
+            })
+        })
+        .collect();
+
+    // ── rotation hash vectors ────────────────────────────────────────────────
+    let rot_cases: &[(u64, u64, &str, &str)] = &[
+        (
+            1,
+            0,
+            "0x0101010101010101010101010101010101010101",
+            "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        ),
+        (
+            11155111,
+            3,
+            "0x0202020202020202020202020202020202020202",
+            "0xabababababababababababababababababababababababababababababababab",
+        ),
+    ];
+
+    let rotation_vectors: Vec<Value> = rot_cases
+        .iter()
+        .map(|(chain_id, nonce, from_hex, root_hex)| {
+            let from = {
+                let b = decode_hex(from_hex).unwrap();
+                let mut arr = [0u8; 20];
+                arr.copy_from_slice(&b);
+                arr
+            };
+            let new_root = decode32(root_hex).unwrap();
+            let req = RotationRequest::new(*chain_id, *nonce, from, new_root).unwrap();
+            json!({
+                "chain_id":      chain_id,
+                "nonce":         nonce,
+                "from":          from_hex,
+                "new_auth_root": root_hex,
+                "rotation_hash": hex32(&req.signing_hash()),
+            })
+        })
+        .collect();
+
+    let out = json!({
+        "description": "HCA cross-implementation test vectors (EIP-8215)",
+        "version": "0.2.0",
+        "tagged_hash":   tagged_hash_vectors,
+        "address":       address_vectors,
+        "merkle_proofs": proof_vectors,
+        "rotation":      rotation_vectors,
+    });
+
+    Ok(pretty(&out))
+}
+
+fn cmd_verify_vectors(path: &str) -> Result<String, String> {
+    let raw = fs::read_to_string(path).map_err(|e| format!("cannot read {}: {}", path, e))?;
+    let doc: Value =
+        serde_json::from_str(&raw).map_err(|e| format!("invalid JSON in {}: {}", path, e))?;
+
+    let mut passed = 0usize;
+    let mut failed = 0usize;
+
+    // ── tagged_hash ──────────────────────────────────────────────────────────
+    if let Some(arr) = doc["tagged_hash"].as_array() {
+        for (i, v) in arr.iter().enumerate() {
+            let tag = v["tag"]
+                .as_str()
+                .ok_or(format!("tagged_hash[{}]: missing tag", i))?;
+            let data = decode_hex(
+                v["data"]
+                    .as_str()
+                    .ok_or(format!("tagged_hash[{}]: missing data", i))?,
+            )?;
+            let expected = decode32(
+                v["expected"]
+                    .as_str()
+                    .ok_or(format!("tagged_hash[{}]: missing expected", i))?,
+            )?;
+            let got = tagged_hash_str(tag, &data);
+            if got == expected {
+                passed += 1;
+            } else {
+                eprintln!(
+                    "FAIL tagged_hash[{}]: got {} expected {}",
+                    i,
+                    hex32(&got),
+                    hex32(&expected)
+                );
+                failed += 1;
+            }
+        }
+    }
+
+    // ── address derivation ───────────────────────────────────────────────────
+    if let Some(arr) = doc["address"].as_array() {
+        for (i, v) in arr.iter().enumerate() {
+            let root = decode32(
+                v["auth_root"]
+                    .as_str()
+                    .ok_or(format!("address[{}]: missing auth_root", i))?,
+            )?;
+            let expected_hex = v["address"]
+                .as_str()
+                .ok_or(format!("address[{}]: missing address", i))?;
+            let got = derive_address(&root);
+            if hex20(&got) == expected_hex {
+                passed += 1;
+            } else {
+                eprintln!(
+                    "FAIL address[{}]: got {} expected {}",
+                    i,
+                    hex20(&got),
+                    expected_hex
+                );
+                failed += 1;
+            }
+        }
+    }
+
+    // ── Merkle proofs ────────────────────────────────────────────────────────
+    if let Some(arr) = doc["merkle_proofs"].as_array() {
+        for (i, v) in arr.iter().enumerate() {
+            let leaf_hash = decode32(
+                v["leaf_hash"]
+                    .as_str()
+                    .ok_or(format!("merkle_proofs[{}]: missing leaf_hash", i))?,
+            )?;
+            let auth_root = decode32(
+                v["auth_root"]
+                    .as_str()
+                    .ok_or(format!("merkle_proofs[{}]: missing auth_root", i))?,
+            )?;
+            let proof = parse_proof(&v.to_string())?;
+            let expected_valid = v["valid"].as_bool().unwrap_or(true);
+            let got =
+                MerkleTree::verify(&leaf_hash, &proof, &auth_root).map_err(|e| e.to_string())?;
+            if got == expected_valid {
+                passed += 1;
+            } else {
+                eprintln!(
+                    "FAIL merkle_proofs[{}]: got valid={} expected valid={}",
+                    i, got, expected_valid
+                );
+                failed += 1;
+            }
+        }
+    }
+
+    // ── rotation hashes ──────────────────────────────────────────────────────
+    if let Some(arr) = doc["rotation"].as_array() {
+        for (i, v) in arr.iter().enumerate() {
+            let chain_id = v["chain_id"]
+                .as_u64()
+                .ok_or(format!("rotation[{}]: missing chain_id", i))?;
+            let nonce = v["nonce"]
+                .as_u64()
+                .ok_or(format!("rotation[{}]: missing nonce", i))?;
+            let from_bytes = decode_hex(
+                v["from"]
+                    .as_str()
+                    .ok_or(format!("rotation[{}]: missing from", i))?,
+            )?;
+            if from_bytes.len() != 20 {
+                return Err(format!("rotation[{}]: from must be 20 bytes", i));
+            }
+            let mut from = [0u8; 20];
+            from.copy_from_slice(&from_bytes);
+            let new_root = decode32(
+                v["new_auth_root"]
+                    .as_str()
+                    .ok_or(format!("rotation[{}]: missing new_auth_root", i))?,
+            )?;
+            let expected = decode32(
+                v["rotation_hash"]
+                    .as_str()
+                    .ok_or(format!("rotation[{}]: missing rotation_hash", i))?,
+            )?;
+            let req =
+                RotationRequest::new(chain_id, nonce, from, new_root).map_err(|e| e.to_string())?;
+            let got = req.signing_hash();
+            if got == expected {
+                passed += 1;
+            } else {
+                eprintln!(
+                    "FAIL rotation[{}]: got {} expected {}",
+                    i,
+                    hex32(&got),
+                    hex32(&expected)
+                );
+                failed += 1;
+            }
+        }
+    }
+
+    let total = passed + failed;
+    let out = json!({
+        "total":  total,
+        "passed": passed,
+        "failed": failed,
+        "ok":     failed == 0,
+    });
+
+    if failed > 0 {
+        return Err(format!(
+            "{} of {} vectors failed\n{}",
+            failed,
+            total,
+            pretty(&out)
+        ));
+    }
+
+    Ok(pretty(&out))
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
