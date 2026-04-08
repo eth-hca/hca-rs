@@ -2,7 +2,7 @@
 
 **EIP-8215 | Hash-Committed Account | Reference Implementation Guide**
 
-This document describes the protocol as implemented in `hca-rs`. For the authoritative EIP text see [`_EIP/EIP-draft.md`](_EIP/EIP-draft.md).
+This document describes the protocol as implemented in `hca-rs`. For the authoritative EIP text see the [EIP-8215 discussion](https://ethereum-magicians.org/t/eip-8215-hash-committed-account-hca/28094).
 
 ---
 
