@@ -128,6 +128,23 @@ fn bench_auth_root(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark parallel vs serial tree construction at large sizes
+#[cfg(feature = "parallel")]
+fn bench_merkle_tree_new_parallel(c: &mut Criterion) {
+    let mut group = c.benchmark_group("merkle_tree_new_parallel");
+
+    for size in [64, 256, 1024, 4096].iter() {
+        let leaves = generate_leaves(*size);
+
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
+            b.iter(|| MerkleTree::new(black_box(leaves.clone())));
+        });
+    }
+
+    group.finish();
+}
+
+#[cfg(not(feature = "parallel"))]
 criterion_group!(
     benches,
     bench_merkle_tree_new,
@@ -137,4 +154,17 @@ criterion_group!(
     bench_leaf_hash,
     bench_auth_root
 );
+
+#[cfg(feature = "parallel")]
+criterion_group!(
+    benches,
+    bench_merkle_tree_new,
+    bench_merkle_proof_generation,
+    bench_merkle_proof_verification,
+    bench_merkle_all_proofs,
+    bench_leaf_hash,
+    bench_auth_root,
+    bench_merkle_tree_new_parallel
+);
+
 criterion_main!(benches);
