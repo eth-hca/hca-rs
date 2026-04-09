@@ -14,8 +14,8 @@ use std::collections::HashSet;
 
 use crate::constants::{MAX_LEAF_SCRIPT_SIZE, MAX_TREE_DEPTH};
 use crate::error::{HcaError, HcaResult};
-use crate::evm::opcode::validate_leaf_script;
 use crate::hash::{tag_hashes, tagged_hash};
+use crate::leaf_version::{validate_for_version, LeafVersion};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 #[cfg(feature = "serde")]
@@ -41,19 +41,21 @@ pub struct Leaf {
 impl Leaf {
     /// Create a new leaf, validating version and script size.
     ///
-    /// Returns `HcaError::InvalidLeafVersion` if version is `0x00`.
+    /// Routes through the `LeafVersion` registry: unknown or reserved versions
+    /// (including `0x00` and `0x02`+) are rejected via `LeafVersion::from_byte`,
+    /// and script validation is dispatched per-version by `validate_for_version`.
+    ///
+    /// Returns `HcaError::InvalidLeafVersion` if version is not active.
     /// Returns `HcaError::LeafScriptTooLarge` if script exceeds `MAX_LEAF_SCRIPT_SIZE`.
     pub fn new(version: u8, script: Vec<u8>, description: &str) -> HcaResult<Self> {
-        if version == 0x00 {
-            return Err(HcaError::InvalidLeafVersion { version });
-        }
+        let lv = LeafVersion::from_byte(version)?;
         if script.is_empty() {
             return Err(HcaError::EmptyLeafScript);
         }
         if script.len() > MAX_LEAF_SCRIPT_SIZE {
             return Err(HcaError::LeafScriptTooLarge { size: script.len() });
         }
-        validate_leaf_script(&script)?;
+        validate_for_version(lv, &script)?;
         Ok(Self {
             version,
             script,
@@ -482,9 +484,30 @@ mod tests {
 
     #[test]
     fn test_valid_leaf_versions() {
+        // Only 0x01 is active — 0x02+ route through LeafVersion registry and are rejected.
         assert!(Leaf::new(0x01, b"script".to_vec(), "v1").is_ok());
-        assert!(Leaf::new(0x02, b"script".to_vec(), "v2").is_ok());
-        assert!(Leaf::new(0xFF, b"script".to_vec(), "vFF").is_ok());
+    }
+
+    #[test]
+    fn test_leaf_version_0x02_rejected() {
+        // 0x02 is reserved (EIP-7932 dispatch) and MUST be rejected at construction.
+        let result = Leaf::new(0x02, b"script".to_vec(), "v2");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            HcaError::InvalidLeafVersion { version: 0x02 }
+        );
+    }
+
+    #[test]
+    fn test_leaf_version_0xff_rejected() {
+        // Unknown versions MUST be rejected by LeafVersion::from_byte.
+        let result = Leaf::new(0xFF, b"script".to_vec(), "vFF");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            HcaError::InvalidLeafVersion { version: 0xFF }
+        );
     }
 
     #[test]
