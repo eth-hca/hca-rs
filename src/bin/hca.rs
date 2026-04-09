@@ -414,7 +414,7 @@ fn cmd_generate_vectors() -> Result<String, String> {
 
     let out = json!({
         "description": "HCA cross-implementation test vectors (EIP-8215)",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "tagged_hash":   tagged_hash_vectors,
         "address":       address_vectors,
         "merkle_proofs": proof_vectors,
