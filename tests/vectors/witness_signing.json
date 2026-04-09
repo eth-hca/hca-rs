@@ -1,7 +1,7 @@
 {
     "description": "HCA witness signing hash test vectors",
     "version": "0.2.0",
-    "formula": "signing_hash = tagged_hash('HCAWitness', chain_id || nonce || from || to || value || gas_limit || max_fee || max_priority_fee || leaf_hash)",
+    "formula": "signing_hash = tagged_hash('HCAWitness', chain_id || nonce || from || to || value || data_len || data || gas_limit || max_fee || max_priority_fee || leaf_hash)",
     "vectors": [
         {
             "description": "Minimal transaction on Sepolia",
