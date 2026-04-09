@@ -117,12 +117,13 @@ EIP-2718 typed transaction, type `0x05`:
 ```
 signing_hash = tagged_hash("HCAWitness",
     chain_id[8] || nonce[8] || from[20] || to[20] || value[16] ||
+    data_len[8] || data[variable] ||
     gas_limit[8] || max_fee_per_gas[16] || max_priority_fee_per_gas[16] ||
     leaf_hash[32]
 )
 ```
 
-Includes `chain_id` (cross-chain replay), `nonce` (same-chain replay), `from` (cross-account replay), and `leaf_hash` (binds to specific spending condition).
+Includes `chain_id` (cross-chain replay), `nonce` (same-chain replay), `from` (cross-account replay), `data` (binds signature to exact calldata), and `leaf_hash` (binds to specific spending condition). The explicit `data_len` prefix is required so that a trailing-zero calldata cannot be confused with an appended `gas_limit` field.
 
 ## 8. authRoot rotation
 

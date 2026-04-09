@@ -166,7 +166,7 @@ See [SECURITY.md](SECURITY.md) for the full security policy.
 
 - **Not audited** — this is research-grade software
 - Constant-time comparison (`subtle`) in proof verification
-- 4 libfuzzer fuzz targets: merkle, proof, witness, RLP
+- 6 libfuzzer fuzz targets: merkle, proof, witness, RLP encode, RLP decode, EVM opcode
 - EVM opcode validator with Berlin gas schedule enforcement
 - `#![warn(missing_docs)]` — all public items documented
 
